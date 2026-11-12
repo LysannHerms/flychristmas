@@ -1,0 +1,475 @@
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap');
+
+:root {
+  font-family: "DM Sans", sans-serif;
+  color: #493e32;
+  background: #f5eddf;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button, a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2 {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 400;
+}
+
+.home-page {
+  min-height: 100vh;
+  padding: 48px 16px 30px;
+  text-align: center;
+  background:
+    radial-gradient(ellipse at 15% 10%, #e4d4bf88, transparent 38%),
+    radial-gradient(ellipse at 85% 70%, #d8dfca66, transparent 45%),
+    #f5eddf;
+}
+
+.calendar-header {
+  margin: 0 auto 35px;
+  max-width: 520px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  color: #a06c5c;
+}
+
+.calendar-header h1 {
+  font-size: clamp(2.5rem, 8vw, 4.5rem);
+  margin: 12px 0;
+  color: #52694d;
+}
+
+.calendar-header p {
+  font-size: 14px;
+  line-height: 1.8;
+  color: #786b5c;
+}
+
+/* DAS REGAL */
+
+.shelf {
+  position: relative;
+  width: min(100%, 440px);
+  margin: 0 auto;
+  padding: 38px 12px 16px;
+  border-left: 10px solid #b18b69;
+  border-right: 10px solid #b18b69;
+  border-radius: 9px 9px 3px 3px;
+  background:
+    linear-gradient(90deg,
+      #eadcc7 0%,
+      #f5e9d7 12%,
+      #efe0c9 88%,
+      #d8c2a5 100%);
+  box-shadow:
+    0 15px 35px #6f543226,
+    inset 0 0 20px #9a79502a;
+}
+
+.shelf-decoration {
+  position: absolute;
+  top: 6px;
+  left: 5%;
+  width: 90%;
+  display: flex;
+  justify-content: space-around;
+  color: #b46b53;
+  font-size: 18px;
+}
+
+.shelf-decoration span:nth-child(even) {
+  color: #6d8b64;
+  transform: translateY(7px);
+}
+
+.shelf-row {
+  position: relative;
+  margin-bottom: 15px;
+}
+
+.shelf-jars {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  justify-items: center;
+  gap: 8px;
+  padding: 16px 3px 0;
+}
+
+.wooden-shelf {
+  height: 13px;
+  width: calc(100% + 12px);
+  margin-left: -6px;
+  border-radius: 3px;
+  background:
+    linear-gradient(
+      #caa47e 0%,
+      #a77b55 45%,
+      #8c6448 100%
+    );
+  box-shadow: 0 6px 7px #62472d33;
+}
+
+/* GURKENGLAS */
+
+.advent-jar {
+  position: relative;
+  display: block;
+  width: min(100%, 105px);
+  height: 135px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  perspective: 500px;
+  transition: transform 0.25s ease;
+}
+
+.advent-jar:hover {
+  transform: translateY(-4px);
+}
+
+.advent-jar:focus-visible {
+  outline: 2px dashed #7a965d;
+  outline-offset: 5px;
+}
+
+.jar-body {
+  position: absolute;
+  bottom: 0;
+  left: 12%;
+  width: 76%;
+  height: 108px;
+  overflow: hidden;
+  border: 2px solid #8ea99a;
+  border-radius: 13px 13px 18px 18px;
+  background:
+    linear-gradient(
+      105deg,
+      #ffffff99 0%,
+      #c1d5bd70 22%,
+      #91b59d60 70%,
+      #ffffff77 100%
+    );
+  box-shadow:
+    inset -5px 0 10px #668c7750,
+    inset 4px 0 7px #ffffffb0,
+    3px 5px 7px #5a4e3830;
+}
+
+.jar-highlight {
+  position: absolute;
+  top: 10px;
+  left: 8px;
+  height: 75%;
+  width: 5px;
+  border-radius: 50%;
+  background: #ffffffa8;
+  filter: blur(2px);
+}
+
+/* DIE GURKEN */
+
+.pickle {
+  position: absolute;
+  bottom: 10px;
+  width: 17px;
+  height: 68px;
+  border-radius: 45% 40% 38% 43%;
+  background:
+    radial-gradient(circle at 35% 30%, #b6c979, transparent 35%),
+    linear-gradient(90deg, #718e50, #9bb36b, #66844b);
+  box-shadow: inset -3px 0 5px #4f713e55;
+}
+
+.pickle--one {
+  left: 19%;
+  transform: rotate(-12deg);
+}
+
+.pickle--two {
+  left: 43%;
+  height: 76px;
+  transform: rotate(5deg);
+}
+
+.pickle--three {
+  left: 65%;
+  height: 63px;
+  transform: rotate(15deg);
+}
+
+/* ETIKETT */
+
+.jar-label {
+  position: absolute;
+  top: 43px;
+  left: 12%;
+  width: 76%;
+  height: 38px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #f4e5c8ed;
+  border: 1px solid #c4b18f;
+  border-radius: 3px 6px 4px 5px;
+  box-shadow: 0 2px 5px #594a3030;
+  transform: rotate(-2deg);
+}
+
+.jar-number {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 25px;
+  color: #795a48;
+}
+
+/* DECKEL */
+
+.jar-lid {
+  position: absolute;
+  z-index: 5;
+  top: 14px;
+  left: 9%;
+  width: 82%;
+  height: 22px;
+  border: 2px solid #876f55;
+  border-radius: 7px 7px 5px 5px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      #a88d6c 0px,
+      #bca27f 5px,
+      #927657 7px
+    );
+  box-shadow: 0 3px 3px #4e3c2b33;
+  transform-origin: center center;
+}
+
+.jar-lid-top {
+  position: absolute;
+  top: -5px;
+  left: 2%;
+  width: 96%;
+  height: 8px;
+  border-radius: 50%;
+  background: #c5ae8a;
+  border: 1px solid #8e785c;
+}
+
+/* SCHWEBENDE PARTIKEL */
+
+.jar-sparkle {
+  position: absolute;
+  z-index: 6;
+  opacity: 0;
+  pointer-events: none;
+  color: #d5a451;
+  font-size: 22px;
+}
+
+.jar-sparkle--one {
+  top: 15px;
+  left: 15%;
+}
+
+.jar-sparkle--two {
+  top: 5px;
+  right: 10%;
+}
+
+.jar-sparkle--three {
+  top: 40px;
+  right: 25%;
+}
+
+/* ÖFFNUNGSANIMATION */
+
+.advent-jar--opening .jar-lid {
+  animation: unscrew-lid 1.4s ease-in-out forwards;
+}
+
+.advent-jar--opening .jar-sparkle--one {
+  animation: float-sparkle 1s 0.35s ease-out forwards;
+}
+
+.advent-jar--opening .jar-sparkle--two {
+  animation: float-sparkle 1s 0.55s ease-out forwards;
+}
+
+.advent-jar--opening .jar-sparkle--three {
+  animation: float-sparkle 1s 0.75s ease-out forwards;
+}
+
+@keyframes unscrew-lid {
+  0% {
+    transform: translateY(0) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  30% {
+    transform: translateY(-10px) rotate(12deg) scale(1.03);
+  }
+  55% {
+    transform: translateY(-24px) rotate(-10deg) scale(1.06);
+  }
+  100% {
+    transform: translateY(-75px) rotate(15deg) scale(0.85);
+    opacity: 0;
+  }
+}
+
+@keyframes float-sparkle {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.4);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-55px) scale(1.3);
+  }
+}
+
+/* GESPERRTE GLÄSER */
+
+.advent-jar--locked {
+  cursor: not-allowed;
+}
+
+.advent-jar--locked .jar-body {
+  filter: saturate(0.65);
+}
+
+.advent-jar--locked:hover {
+  transform: none;
+}
+
+/* TAGESSEITEN */
+
+.day-page {
+  min-height: 100vh;
+  padding: 40px 18px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background:
+    radial-gradient(circle at 30% 20%, #e1e8d4, transparent 45%),
+    #f5eddf;
+}
+
+.day-paper {
+  width: min(100%, 540px);
+  padding: 50px 30px;
+  text-align: center;
+  background: #fff9ec;
+  border: 1px solid #e6d7bf;
+  border-radius: 5px;
+  box-shadow: 0 12px 35px #69553b1c;
+}
+
+.day-paper h1 {
+  color: #52694d;
+  font-size: clamp(2rem, 7vw, 3rem);
+  line-height: 1.2;
+}
+
+.day-paper p {
+  line-height: 1.8;
+}
+
+.day-illustration {
+  margin: 25px auto;
+  font-size: 60px;
+  color: #b49a61;
+}
+
+.day-image {
+  display: block;
+  width: 100%;
+  max-height: 350px;
+  object-fit: contain;
+  margin: 25px auto;
+  border-radius: 8px;
+}
+
+.content-link {
+  display: inline-block;
+  margin: 20px 0;
+  padding: 12px 20px;
+  color: #fff9ec;
+  background: #708768;
+  border-radius: 5px;
+  text-decoration: none;
+}
+
+.bonus-section {
+  margin-top: 30px;
+  padding: 22px;
+  background: #edf0e4;
+  border-radius: 8px;
+}
+
+.bonus-section h2 {
+  font-size: 1.5rem;
+  color: #52694d;
+}
+
+.back-link {
+  display: block;
+  margin-top: 35px;
+  color: #84654f;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.calendar-footer {
+  margin-top: 35px;
+  font-family: "Fraunces", Georgia, serif;
+  color: #8a7966;
+  font-style: italic;
+}
+
+@media (max-width: 380px) {
+  .shelf {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .shelf-jars {
+    gap: 3px;
+  }
+
+  .advent-jar {
+    height: 125px;
+  }
+
+  .jar-body {
+    height: 100px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .advent-jar,
+  .jar-lid,
+  .jar-sparkle {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
