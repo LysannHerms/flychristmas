@@ -1,5 +1,5 @@
 import {
-  BrowserRouter,
+  HashRouter,
   Navigate,
   Outlet,
   Route,
@@ -33,18 +33,16 @@ function ProtectedRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <HashRouter>
         <Routes>
           <Route path="/anmelden" element={<LoginPage />} />
-
           <Route element={<ProtectedRoutes />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/tag/:day" element={<DayPage />} />
           </Route>
-
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
     </AuthProvider>
   );
 }
