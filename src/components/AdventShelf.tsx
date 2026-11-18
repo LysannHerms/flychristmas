@@ -1,5 +1,4 @@
 import AdventJar from "./AdventJar";
-import { calendarDays } from "../data/calendar";
 
 const displayOrder = [
   14, 2, 21, 5, 11, 18,
@@ -11,15 +10,10 @@ const displayOrder = [
 export default function AdventShelf() {
   return (
     <div className="shelf">
-     
-
       <div className="shelf-jars">
-        {displayOrder.map((day) => {
-          const item = calendarDays.find((entry) => entry.day === day);
-          if (!item) return null;
-
-          return <AdventJar key={item.day} item={item} />;
-        })}
+        {displayOrder.map((day) => (
+          <AdventJar key={day} day={day} />
+        ))}
       </div>
     </div>
   );

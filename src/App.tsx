@@ -6,7 +6,10 @@ import {
   Routes,
   useLocation,
 } from "react-router-dom";
-import { AuthProvider, useAuth } from "./auth/AuthProvider";
+import {
+  AuthProvider,
+  useAuth,
+} from "./auth/AuthProvider";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
 import DayPage from "./pages/DayPage";
@@ -18,13 +21,21 @@ function ProtectedRoutes() {
   if (status === "loading") {
     return (
       <main className="auth-page">
-        <p className="auth-status">Kalender wird geöffnet …</p>
+        <p className="auth-status">
+          Kalender wird geöffnet …
+        </p>
       </main>
     );
   }
 
   if (status !== "signedIn") {
-    return <Navigate to="/anmelden" replace state={{ from: location }} />;
+    return (
+      <Navigate
+        to="/anmelden"
+        replace
+        state={{ from: location }}
+      />
+    );
   }
 
   return <Outlet />;
@@ -35,12 +46,29 @@ export default function App() {
     <AuthProvider>
       <HashRouter>
         <Routes>
-          <Route path="/anmelden" element={<LoginPage />} />
+          <Route
+            path="/anmelden"
+            element={<LoginPage />}
+          />
+
           <Route element={<ProtectedRoutes />}>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/tag/:day" element={<DayPage />} />
+            <Route
+              path="/"
+              element={<HomePage />}
+            />
+
+            <Route
+              path="/tag/:day"
+              element={<DayPage />}
+            />
           </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
+
+          <Route
+            path="*"
+            element={
+              <Navigate to="/" replace />
+            }
+          />
         </Routes>
       </HashRouter>
     </AuthProvider>

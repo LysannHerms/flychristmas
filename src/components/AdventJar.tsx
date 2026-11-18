@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { CalendarDay } from "../data/calendar";
-import { getUnlockMessage, isDayUnlocked } from "../utils/calendarTime";
+import {
+  getUnlockMessage,
+  isDayUnlocked,
+} from "../utils/calendarTime";
 
 import Gurke1 from "../assets/decorations/cucumbers/Gurke1.png";
 import Gurke2 from "../assets/decorations/cucumbers/Gurke2.png";
@@ -15,7 +17,7 @@ import Gurke9 from "../assets/decorations/cucumbers/Gurke9.png";
 import Gurke10 from "../assets/decorations/cucumbers/Gurke10.png";
 
 interface AdventJarProps {
-  item: CalendarDay;
+  day: number;
 }
 
 const wideDays = new Set([6, 10, 15, 21]);
@@ -35,41 +37,55 @@ const cucumberStickerByDay = new Map<number, string>([
   [15, Gurke10],
 ]);
 
-export default function AdventJar({ item }: AdventJarProps) {
+export default function AdventJar({
+  day,
+}: AdventJarProps) {
   const navigate = useNavigate();
+
   const [opened, setOpened] = useState(false);
+
   const [unlocked, setUnlocked] = useState(() =>
-    isDayUnlocked(item.day),
+    isDayUnlocked(day),
   );
 
-  const cucumberSticker = cucumberStickerByDay.get(item.day);
+  const cucumberSticker =
+    cucumberStickerByDay.get(day);
 
   useEffect(() => {
-    const update = () => setUnlocked(isDayUnlocked(item.day));
+    const update = () =>
+      setUnlocked(isDayUnlocked(day));
 
     update();
 
-    const interval = window.setInterval(update, 1000);
+    const interval = window.setInterval(
+      update,
+      1000,
+    );
+
     window.addEventListener("focus", update);
 
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("focus", update);
     };
-  }, [item.day]);
+  }, [day]);
 
   function handleClick() {
-    if (!isDayUnlocked(item.day) || opened) return;
+    if (!isDayUnlocked(day) || opened) return;
 
     setOpened(true);
-    window.setTimeout(() => navigate(`/tag/${item.day}`), 1250);
+
+    window.setTimeout(
+      () => navigate(`/tag/${day}`),
+      1250,
+    );
   }
 
-  const sizeClass = featureDays.has(item.day)
+  const sizeClass = featureDays.has(day)
     ? "advent-jar--feature"
-    : wideDays.has(item.day)
+    : wideDays.has(day)
       ? "advent-jar--wide"
-      : tallDays.has(item.day)
+      : tallDays.has(day)
         ? "advent-jar--tall"
         : "";
 
@@ -87,15 +103,24 @@ export default function AdventJar({ item }: AdventJarProps) {
       onClick={handleClick}
       aria-label={
         unlocked
-          ? `Türchen ${item.day} öffnen`
-          : getUnlockMessage(item.day)
+          ? `Türchen ${day} öffnen`
+          : getUnlockMessage(day)
       }
       aria-disabled={!unlocked}
-      title={unlocked ? item.title : getUnlockMessage(item.day)}
+      title={
+        unlocked
+          ? `Türchen ${day}`
+          : getUnlockMessage(day)
+      }
     >
-      <span className="jar-body" aria-hidden="true">
+      <span
+        className="jar-body"
+        aria-hidden="true"
+      >
         <span className="jar-label">
-          <span className="jar-number">{item.day}</span>
+          <span className="jar-number">
+            {day}
+          </span>
         </span>
 
         {cucumberSticker && (

@@ -1,30 +1,45 @@
 import { useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import type { CalendarDay } from "../data/calendar";
+import { getMiniApp } from "../miniApps/miniAppRegistry";
 import { getCalendarDay } from "../services/calendarContent";
-import { isDayUnlocked, getUnlockMessage } from "../utils/calendarTime";
+import {
+  getUnlockMessage,
+  isDayUnlocked,
+} from "../utils/calendarTime";
 
 export default function DayPage() {
   const { day } = useParams();
   const [searchParams] = useSearchParams();
+
   const dayNumber = Number(day);
-  const [item, setItem] = useState<CalendarDay | null>(null);
-  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
-    "loading"
-  );
+
+  const [item, setItem] =
+    useState<CalendarDay | null>(null);
+
+  const [loadState, setLoadState] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
 
   useEffect(() => {
     let cancelled = false;
+
     setLoadState("loading");
 
     getCalendarDay(dayNumber)
       .then((calendarDay) => {
         if (cancelled) return;
+
         setItem(calendarDay);
         setLoadState("ready");
       })
       .catch(() => {
         if (cancelled) return;
+
         setLoadState("error");
       });
 
@@ -36,7 +51,9 @@ export default function DayPage() {
   if (loadState === "loading") {
     return (
       <main className="day-page">
-        <p className="day-status">Türchen wird geladen …</p>
+        <p className="day-status">
+          Türchen wird geladen …
+        </p>
       </main>
     );
   }
@@ -45,7 +62,11 @@ export default function DayPage() {
     return (
       <main className="day-page">
         <article className="day-paper">
-          <h1>Das Türchen konnte gerade nicht geladen werden.</h1>
+          <h1>
+            Das Türchen konnte gerade nicht
+            geladen werden.
+          </h1>
+
           <Link className="back-link" to="/">
             Zurück zum Kalender
           </Link>
@@ -58,7 +79,10 @@ export default function DayPage() {
     return (
       <main className="day-page">
         <h1>Dieses Türchen gibt es nicht.</h1>
-        <Link to="/">Zurück zum Kalender</Link>
+
+        <Link to="/">
+          Zurück zum Kalender
+        </Link>
       </main>
     );
   }
@@ -66,12 +90,19 @@ export default function DayPage() {
   if (!isDayUnlocked(item.day)) {
     return (
       <main className="day-page">
-        <p className="day-date">{item.day}. Dezember</p>
+        <p className="day-date">
+          {item.day}. Dezember
+        </p>
 
         <div className="day-paper">
-          <span className="eyebrow">NOCH VERSCHLOSSEN</span>
+          <span className="eyebrow">
+            NOCH VERSCHLOSSEN
+          </span>
+
           <h1>Geduld, kleine Gurke!</h1>
+
           <p>{getUnlockMessage(item.day)}</p>
+
           <Link className="back-link" to="/">
             Zurück zum Kalender
           </Link>
@@ -80,20 +111,39 @@ export default function DayPage() {
     );
   }
 
-  // Einfacher Bonus-Link für NFC oder QR
   const bonusUnlocked =
     item.hasNfcBonus &&
     Boolean(item.bonusToken) &&
-    searchParams.get("bonus") === item.bonusToken;
+    searchParams.get("bonus") ===
+      item.bonusToken;
+
+  const MiniAppComponent =
+    getMiniApp(item.appId)?.Component;
+
+  const isCucumberOracle =
+    item.appId === "cucumber-oracle";
 
   return (
     <main className="day-page">
-      <p className="day-date">{item.day}. Dezember</p>
+      <p className="day-date">
+        {item.day}. Dezember
+      </p>
 
-      <article className="day-paper">
-        <div className="day-illustration" aria-hidden="true">
-          ✦
-        </div>
+      <article
+        className={
+          isCucumberOracle
+            ? "day-paper day-paper--oracle"
+            : "day-paper"
+        }
+      >
+        {!MiniAppComponent && (
+          <div
+            className="day-illustration"
+            aria-hidden="true"
+          >
+            ✦
+          </div>
+        )}
 
         <h1>{item.title}</h1>
 
@@ -118,17 +168,29 @@ export default function DayPage() {
           </a>
         )}
 
+        {MiniAppComponent && (
+          <MiniAppComponent item={item} />
+        )}
+
         {item.hasNfcBonus && (
           <div className="bonus-section">
             {bonusUnlocked ? (
               <>
-                <span className="eyebrow">GEHEIME ÜBERRASCHUNG</span>
-                <h2>Ein verstecktes Extra!</h2>
+                <span className="eyebrow">
+                  GEHEIME ÜBERRASCHUNG
+                </span>
+
+                <h2>
+                  Ein verstecktes Extra!
+                </h2>
+
                 <p>{item.bonusText}</p>
               </>
             ) : (
               <p>
-                In diesem Türchen versteckt sich noch ein kleines Geheimnis ...
+                In diesem Türchen versteckt
+                sich noch ein kleines
+                Geheimnis ...
               </p>
             )}
           </div>
