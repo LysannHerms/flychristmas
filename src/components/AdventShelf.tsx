@@ -1,33 +1,26 @@
-
 import AdventJar from "./AdventJar";
 import { calendarDays } from "../data/calendar";
 
-export default function AdventShelf() {
-  const rows = Array.from({ length: 8 }, (_, row) =>
-    calendarDays.slice(row * 3, row * 3 + 3)
-  );
+const displayOrder = [
+  14, 2, 21, 5, 11, 18,
+  7, 24, 3, 16, 9, 1,
+  20, 6, 13, 22, 4, 17,
+  10, 23, 8, 15, 12, 19,
+];
 
+export default function AdventShelf() {
   return (
     <div className="shelf">
-      <div className="shelf-decoration" aria-hidden="true">
-        <span>✦</span>
-        <span>✧</span>
-        <span>✦</span>
-        <span>✧</span>
-        <span>✦</span>
+     
+
+      <div className="shelf-jars">
+        {displayOrder.map((day) => {
+          const item = calendarDays.find((entry) => entry.day === day);
+          if (!item) return null;
+
+          return <AdventJar key={item.day} item={item} />;
+        })}
       </div>
-
-      {rows.map((row, index) => (
-        <div className="shelf-row" key={index}>
-          <div className="shelf-jars">
-            {row.map((item) => (
-              <AdventJar key={item.day} item={item} />
-            ))}
-          </div>
-
-          <div className="wooden-shelf" />
-        </div>
-      ))}
     </div>
   );
 }

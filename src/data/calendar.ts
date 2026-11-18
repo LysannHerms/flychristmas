@@ -5,7 +5,9 @@ export type ContentType =
   | "image"
   | "game"
   | "gift"
-  | "activity";
+  | "activity"
+  | "app";
+
 
 export interface CalendarDay {
   day: number;

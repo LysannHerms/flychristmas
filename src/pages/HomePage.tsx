@@ -1,26 +1,34 @@
-
 import AdventShelf from "../components/AdventShelf";
+import { useAuth } from "../auth/AuthProvider";
 
 export default function HomePage() {
+  const { signOut } = useAuth();
+
   return (
     <main className="home-page">
-      <header className="calendar-header">
-        <span className="eyebrow">ADVENT 2026</span>
+      <button
+        className="sign-out-button"
+        type="button"
+        onClick={() => void signOut()}
+      >
+        Abmelden
+      </button>
 
-        <h1>Das Gurkenregal</h1>
+      <header className="calendar-header">
+        <span className="eyebrow">DEZEMBER 2026</span>
+
+        <h1>24 kleine Überraschungen</h1>
 
         <p>
-          24 Gläser voller kleiner Überraschungen.
+          Jeden Tag ein neues Türchen.
           <br />
-          Jeden Morgen um sieben öffnet sich ein neues.
+          Ab 7 Uhr wartet ein kleiner Gruß auf dich.
         </p>
       </header>
 
       <AdventShelf />
 
-      <footer className="calendar-footer">
-        Mit Liebe eingelegt.
-      </footer>
+      <footer className="calendar-footer">Mit einer Prise Gurke.</footer>
     </main>
   );
 }
