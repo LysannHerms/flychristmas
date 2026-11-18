@@ -241,6 +241,41 @@ h2,
   bottom: 14%;
 }
 
+/* Handgemalte Gurkensticker auf den Türchen */
+.door-detail-image {
+  position: absolute;
+  right: 8%;
+  bottom: 8%;
+  z-index: 0;
+
+  width: clamp(30px, 28%, 60px);
+  height: auto;
+  max-height: 45%;
+  object-fit: contain;
+
+  pointer-events: none;
+  user-select: none;
+  transform: rotate(6deg);
+  transform-origin: center;
+}
+
+/* Manche Gurken auf die andere Seite setzen */
+.advent-jar:nth-child(4n + 2) .door-detail-image {
+  right: auto;
+  left: 8%;
+  transform: rotate(-7deg);
+}
+
+/* Auf breiten Türchen etwas größer */
+.advent-jar--wide .door-detail-image {
+  width: clamp(44px, 24%, 88px);
+}
+
+/* Auf den großen Highlight-Türchen */
+.advent-jar--feature .door-detail-image {
+  width: clamp(58px, 25%, 110px);
+}
+
 .advent-jar:nth-child(4n + 2) .door-detail {
   right: auto;
   left: 14%;
@@ -339,7 +374,38 @@ h2,
   margin: 25px auto;
   border-radius: 8px;
 }
+/* Kompaktere DayCard, sobald ein Bild enthalten ist */
+.day-page:has(.day-image) {
+  justify-content: flex-start;
+  padding-top: 32px;
+  padding-bottom: 32px;
+}
 
+.day-paper:has(.day-image) {
+  padding: clamp(28px, 7vw, 44px) clamp(14px, 4vw, 24px);
+}
+
+.day-paper:has(.day-image) .day-illustration {
+  margin: 0 auto 18px;
+  font-size: 52px;
+}
+
+.day-paper:has(.day-image) h1 {
+  margin: 0 0 16px;
+}
+
+.day-paper:has(.day-image) p {
+  margin: 0 0 18px;
+}
+
+.day-paper:has(.day-image) .day-image {
+  height: auto;
+  margin: 18px auto 0;
+}
+
+.day-paper:has(.day-image) .back-link {
+  margin-top: 28px;
+}
 .content-link {
   display: inline-block;
   margin: 20px 0;

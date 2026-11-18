@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import type { CalendarDay } from "../data/calendar";
 import { getUnlockMessage, isDayUnlocked } from "../utils/calendarTime";
 
-// PNG-Sticker später aktivieren, sobald die Dateien im Ordner liegen:
 import Gurke1 from "../assets/decorations/cucumbers/Gurke1.png";
 import Gurke2 from "../assets/decorations/cucumbers/Gurke2.png";
 import Gurke3 from "../assets/decorations/cucumbers/Gurke3.png";
@@ -22,17 +21,32 @@ interface AdventJarProps {
 const wideDays = new Set([6, 10, 15, 21]);
 const tallDays = new Set([4, 8, 12, 18, 23]);
 const featureDays = new Set([1, 16, 24]);
-const cucumberStickers = [
-  Gurke1, Gurke2, Gurke3, Gurke4, Gurke5,
-  Gurke6, Gurke7, Gurke8, Gurke9, Gurke10,
-];
+
+const cucumberStickerByDay = new Map<number, string>([
+  [21, Gurke1],
+  [18, Gurke2],
+  [24, Gurke3],
+  [8, Gurke4],
+  [1, Gurke5],
+  [4, Gurke6],
+  [10, Gurke7],
+  [16, Gurke8],
+  [12, Gurke9],
+  [15, Gurke10],
+]);
+
 export default function AdventJar({ item }: AdventJarProps) {
   const navigate = useNavigate();
   const [opened, setOpened] = useState(false);
-  const [unlocked, setUnlocked] = useState(() => isDayUnlocked(item.day));
+  const [unlocked, setUnlocked] = useState(() =>
+    isDayUnlocked(item.day),
+  );
+
+  const cucumberSticker = cucumberStickerByDay.get(item.day);
 
   useEffect(() => {
     const update = () => setUnlocked(isDayUnlocked(item.day));
+
     update();
 
     const interval = window.setInterval(update, 1000);
@@ -67,9 +81,15 @@ export default function AdventJar({ item }: AdventJarProps) {
         sizeClass,
         opened ? "advent-jar--opening" : "",
         !unlocked ? "advent-jar--locked" : "",
-      ].filter(Boolean).join(" ")}
+      ]
+        .filter(Boolean)
+        .join(" ")}
       onClick={handleClick}
-      aria-label={unlocked ? `Türchen ${item.day} öffnen` : getUnlockMessage(item.day)}
+      aria-label={
+        unlocked
+          ? `Türchen ${item.day} öffnen`
+          : getUnlockMessage(item.day)
+      }
       aria-disabled={!unlocked}
       title={unlocked ? item.title : getUnlockMessage(item.day)}
     >
@@ -77,12 +97,14 @@ export default function AdventJar({ item }: AdventJarProps) {
         <span className="jar-label">
           <span className="jar-number">{item.day}</span>
         </span>
-       
-<img
-  className="door-detail-image"
-  src={cucumberStickers[(item.day - 1) % cucumberStickers.length]}
-  alt=""
-/>
+
+        {cucumberSticker && (
+          <img
+            className="door-detail-image"
+            src={cucumberSticker}
+            alt=""
+          />
+        )}
       </span>
     </button>
   );
