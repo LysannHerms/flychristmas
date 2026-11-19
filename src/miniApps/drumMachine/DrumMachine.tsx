@@ -164,6 +164,7 @@ export default function DrumMachine() {
   const playheadTimeoutsRef = useRef<number[]>([]);
   const undoStackRef = useRef<Pattern[]>([]);
   const testAudioRef = useRef<HTMLAudioElement | null>(null);
+  const kickAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     patternRef.current = pattern;
@@ -209,6 +210,12 @@ export default function DrumMachine() {
 
     tickRef.current = 0;
     audibleTickRef.current = 0;
+
+    kickAudioRef.current?.pause();
+
+    if (kickAudioRef.current) {
+      kickAudioRef.current.currentTime = 0;
+    }
   }
 
   useEffect(() => {
@@ -221,6 +228,14 @@ export default function DrumMachine() {
 
       testAudioRef.current?.pause();
       testAudioRef.current = null;
+
+      kickAudioRef.current?.pause();
+
+      if (kickAudioRef.current) {
+        kickAudioRef.current.src = "";
+      }
+
+      kickAudioRef.current = null;
     };
   }, []);
 
@@ -245,13 +260,26 @@ export default function DrumMachine() {
         const length = trackLengthsRef.current[trackIndex];
         const stepIndex = scheduledTick % length;
 
-        if (patternRef.current[trackIndex][stepIndex]) {
+        if (
+          patternRef.current[trackIndex][stepIndex] &&
+          pad.id !== "kick"
+        ) {
           triggerDrumSound(pad.id, scheduledTime);
         }
       });
 
       const timeoutId = window.setTimeout(() => {
         audibleTickRef.current = scheduledTick;
+
+        const kickLength =
+          trackLengthsRef.current[0];
+
+        const kickStep =
+          scheduledTick % kickLength;
+
+        if (patternRef.current[0][kickStep]) {
+          playKickSample();
+        }
 
         setPlayheads(
           trackLengthsRef.current.map(
@@ -331,7 +359,11 @@ export default function DrumMachine() {
     pad: PadDefinition,
     trackIndex: number,
   ) {
-    triggerDrumSound(pad.id);
+    if (pad.id === "kick") {
+      playKickSample();
+    } else {
+      triggerDrumSound(pad.id);
+    }
 
     setSelectedTrack(trackIndex);
 
@@ -566,6 +598,35 @@ export default function DrumMachine() {
         `PLAY-FEHLER: ${message}`,
       );
     }
+  }
+
+  function playKickSample() {
+    const sampleUrl =
+      `${import.meta.env.BASE_URL}sounds/audio-test.wav`;
+
+    if (!kickAudioRef.current) {
+      const audio = new Audio(sampleUrl);
+      audio.preload = "auto";
+      audio.volume = 1;
+
+      kickAudioRef.current = audio;
+    }
+
+    const audio = kickAudioRef.current;
+
+    audio.pause();
+    audio.currentTime = 0;
+
+    void audio.play().catch((error: unknown) => {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unbekannter Fehler";
+
+      setHtmlAudioStatus(
+        `KICK-SAMPLE-FEHLER: ${message}`,
+      );
+    });
   }
 
   const firstVisibleTrack =
