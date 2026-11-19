@@ -89,14 +89,18 @@ function getMasterOutput(context: AudioContext) {
   return masterOutput;
 }
 
-export async function prepareAudio() {
+export function prepareAudio(): AudioContext {
   const context = getAudioContext();
 
-  // Aktiviert Web Audio auf iPhone und iPad
   playSilentUnlockSound(context);
 
   if (context.state !== "running") {
-    await context.resume();
+    void context.resume().catch((error) => {
+      console.error(
+        "AudioContext konnte nicht gestartet werden:",
+        error,
+      );
+    });
   }
 
   return context;
@@ -428,13 +432,17 @@ function scheduleDrumSound(
   }
 }
 
-export async function triggerDrumSound(
+export function triggerDrumSound(
   soundId: DrumSoundId,
   scheduledTime?: number,
-) {
-  const context = await prepareAudio();
+): void {
+  const context = prepareAudio();
   const output = getMasterOutput(context);
-  const when = scheduledTime ?? context.currentTime;
+
+  const when = Math.max(
+    context.currentTime,
+    scheduledTime ?? context.currentTime,
+  );
 
   scheduleDrumSound(
     context,

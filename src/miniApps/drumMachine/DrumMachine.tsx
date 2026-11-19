@@ -219,10 +219,10 @@ export default function DrumMachine() {
     };
   }, []);
 
-  async function schedule() {
+  function schedule() {
     if (!playingRef.current) return;
 
-    const context = await prepareAudio();
+    const context = prepareAudio();
 
     while (
       nextStepTimeRef.current <
@@ -241,7 +241,7 @@ export default function DrumMachine() {
         const stepIndex = scheduledTick % length;
 
         if (patternRef.current[trackIndex][stepIndex]) {
-          void triggerDrumSound(pad.id, scheduledTime);
+          triggerDrumSound(pad.id, scheduledTime);
         }
       });
 
@@ -264,10 +264,10 @@ export default function DrumMachine() {
     }
   }
 
-  async function startPlayback() {
+  function startPlayback() {
     if (playingRef.current) return;
 
-    const context = await prepareAudio();
+    const context = prepareAudio();
 
     playingRef.current = true;
     setIsPlaying(true);
@@ -278,20 +278,20 @@ export default function DrumMachine() {
     nextStepTimeRef.current =
       context.currentTime + 0.05;
 
-    await schedule();
+    schedule();
 
     schedulerRef.current = window.setInterval(() => {
-      void schedule();
+      schedule();
     }, 25);
   }
 
-  async function toggleRecording() {
+  function toggleRecording() {
     const nextRecordingState = !isRecording;
 
     setIsRecording(nextRecordingState);
 
     if (nextRecordingState && !playingRef.current) {
-      await startPlayback();
+      startPlayback();
     }
   }
 
@@ -322,11 +322,11 @@ export default function DrumMachine() {
     });
   }
 
-  async function playPad(
+  function playPad(
     pad: PadDefinition,
     trackIndex: number,
   ) {
-    await triggerDrumSound(pad.id);
+    triggerDrumSound(pad.id);
 
     setSelectedTrack(trackIndex);
 
@@ -519,16 +519,18 @@ export default function DrumMachine() {
   );
 
   return (
-    <section
+  <section
   className="beat-machine"
   aria-label="Beat It Drum Machine"
-  onPointerDown={() => {
-    void prepareAudio().catch((error) => {
+  onPointerDownCapture={() => {
+    try {
+      prepareAudio();
+    } catch (error) {
       console.error(
         "Audio konnte nicht aktiviert werden:",
         error,
       );
-    });
+    }
   }}
 >
       <header className="beat-machine__header">
