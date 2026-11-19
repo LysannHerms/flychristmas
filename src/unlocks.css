@@ -231,17 +231,18 @@
   .rotate-device {
     display: grid;
     place-items: center;
-    gap: 12px;
+    gap: 16px;
     text-align: center;
   }
 
   .rotate-device span {
     color: var(--olive-light);
     font-size: 64px;
+    margin-top: 150px;
   }
 
   .rotate-device p {
-    margin: 0;
+    margin: 20px;
     font-size: 18px;
   }
 }
