@@ -22,7 +22,7 @@ export default function HomePage() {
         <p>
           Jeden Tag ein neues Türchen.
           <br />
-          Ab 7 Uhr wartet ein kleiner Gruß auf dich.
+          Ab 7 Uhr wartet hier was auf dich.
         </p>
       </header>
 

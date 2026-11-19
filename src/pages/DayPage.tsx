@@ -1,15 +1,19 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 import {
   Link,
   useParams,
   useSearchParams,
 } from "react-router-dom";
 import type { CalendarDay } from "../data/calendar";
+import AppUnlockPanel from "../components/AppUnlockPanel";
 import { getMiniApp } from "../miniApps/miniAppRegistry";
 import { getCalendarDay } from "../services/calendarContent";
 import {
-  getUnlockMessage,
   isDayUnlocked,
+  getUnlockMessage,
 } from "../utils/calendarTime";
 
 export default function DayPage() {
@@ -63,11 +67,14 @@ export default function DayPage() {
       <main className="day-page">
         <article className="day-paper">
           <h1>
-            Das Türchen konnte gerade nicht
-            geladen werden.
+            Das Türchen konnte gerade nicht geladen
+            werden.
           </h1>
 
-          <Link className="back-link" to="/">
+          <Link
+            className="back-link"
+            to="/"
+          >
             Zurück zum Kalender
           </Link>
         </article>
@@ -103,7 +110,10 @@ export default function DayPage() {
 
           <p>{getUnlockMessage(item.day)}</p>
 
-          <Link className="back-link" to="/">
+          <Link
+            className="back-link"
+            to="/"
+          >
             Zurück zum Kalender
           </Link>
         </div>
@@ -114,14 +124,16 @@ export default function DayPage() {
   const bonusUnlocked =
     item.hasNfcBonus &&
     Boolean(item.bonusToken) &&
-    searchParams.get("bonus") ===
-      item.bonusToken;
+    searchParams.get("bonus") === item.bonusToken;
 
   const MiniAppComponent =
     getMiniApp(item.appId)?.Component;
 
   const isCucumberOracle =
     item.appId === "cucumber-oracle";
+
+  const isDrumMachine =
+    item.appId === "drum-machine";
 
   return (
     <main className="day-page">
@@ -148,6 +160,13 @@ export default function DayPage() {
         <h1>{item.title}</h1>
 
         <p>{item.message}</p>
+
+        {isDrumMachine && (
+          <AppUnlockPanel
+            appId="drum-machine"
+            appPath="/tag/16/beat-it"
+          />
+        )}
 
         {item.image && (
           <img
@@ -180,23 +199,23 @@ export default function DayPage() {
                   GEHEIME ÜBERRASCHUNG
                 </span>
 
-                <h2>
-                  Ein verstecktes Extra!
-                </h2>
+                <h2>Ein verstecktes Extra!</h2>
 
                 <p>{item.bonusText}</p>
               </>
             ) : (
               <p>
-                In diesem Türchen versteckt
-                sich noch ein kleines
-                Geheimnis ...
+                In diesem Türchen versteckt sich noch
+                ein kleines Geheimnis ...
               </p>
             )}
           </div>
         )}
 
-        <Link className="back-link" to="/">
+        <Link
+          className="back-link"
+          to="/"
+        >
           ← Zurück zum Kalender
         </Link>
       </article>

@@ -1,0 +1,884 @@
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.drum-machine-page.drum-machine-page {
+  min-height: 100dvh;
+  padding: 0;
+  display: block;
+  background: var(--navy);
+}
+
+.beat-machine {
+  --rust: #b85f32;
+  --rust-light: #d47745;
+
+  --track-1: var(--blue-light);
+  --track-2: #577eae;
+  --track-3: #486c9a;
+  --track-4: var(--blue);
+
+  width: 100%;
+  height: 100dvh;
+  min-height: 320px;
+
+  padding:
+    max(
+      8px,
+      env(safe-area-inset-top)
+    )
+    max(
+      10px,
+      env(safe-area-inset-right)
+    )
+    max(
+      8px,
+      env(safe-area-inset-bottom)
+    )
+    max(
+      10px,
+      env(safe-area-inset-left)
+    );
+
+  display: grid;
+
+  grid-template-rows:
+    auto
+    minmax(0, 1fr)
+    auto;
+
+  gap: 8px;
+
+  color: #dce7f3;
+
+  background:
+    radial-gradient(
+      circle at 25% 25%,
+      #202e5d 0%,
+      transparent 45%
+    ),
+    var(--navy);
+
+  overflow: hidden;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.beat-machine button,
+.beat-machine select {
+  font: inherit;
+}
+
+.beat-machine__header {
+  min-height: 44px;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(110px, 1fr)
+    auto
+    auto
+    auto;
+
+  align-items: center;
+
+  gap:
+    clamp(
+      8px,
+      2vw,
+      24px
+    );
+
+  padding: 2px 4px;
+}
+
+.beat-machine__title {
+  color: #dce7f3;
+
+  font-family:
+    "PP Gosha Sans",
+    "Arial Black",
+    sans-serif;
+
+  font-size:
+    clamp(
+      1.35rem,
+      3.1vw,
+      2.2rem
+    );
+
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.beat-machine__title span {
+  color: var(--olive-light);
+}
+
+.beat-tempo {
+  display: grid;
+
+  grid-template-columns:
+    38px
+    minmax(72px, auto)
+    38px;
+
+  align-items: center;
+  gap: 5px;
+}
+
+.beat-tempo button,
+.beat-help-button {
+  min-width: 38px;
+  min-height: 38px;
+
+  padding: 0;
+
+  color: #dce7f3;
+  background: #24365f;
+
+  border:
+    1px solid
+    #6790c366;
+
+  border-radius: 8px;
+
+  font-size: 1.35rem;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.beat-tempo output {
+  color: #dce7f3;
+
+  font-size:
+    clamp(
+      0.78rem,
+      1.7vw,
+      1rem
+    );
+
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.beat-kit {
+  min-height: 38px;
+
+  padding: 0 16px;
+
+  display: grid;
+  place-items: center;
+
+  color: var(--olive-light);
+  background: var(--olive);
+
+  border:
+    1px solid
+    #c3b41d70;
+
+  border-radius: 8px;
+
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+
+  white-space: nowrap;
+}
+
+.beat-help-button {
+  border-radius: 50%;
+}
+
+.beat-machine__workspace {
+  min-height: 0;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(330px, 1.05fr)
+    minmax(390px, 0.95fr);
+
+  gap: 9px;
+}
+
+.beat-pads {
+  min-height: 0;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      4,
+      minmax(0, 1fr)
+    );
+
+  grid-template-rows:
+    repeat(
+      4,
+      minmax(0, 1fr)
+    );
+
+  gap: 6px;
+}
+
+.beat-pad {
+  position: relative;
+
+  min-width: 0;
+  min-height: 0;
+
+  padding: 3px;
+
+  color: var(--navy);
+  background: var(--blue-light);
+
+  border:
+    1px solid
+    #dce7f245;
+
+  border-radius: 9px;
+
+  box-shadow:
+    inset 0 -5px 0 #385f8f55,
+    0 3px 8px #050b215c;
+
+  font-size:
+    clamp(
+      0.62rem,
+      1.45vw,
+      0.92rem
+    );
+
+  font-weight: 800;
+  letter-spacing: 0.025em;
+
+  cursor: pointer;
+
+  transition:
+    transform 70ms ease,
+    background-color 70ms ease,
+    box-shadow 70ms ease;
+}
+
+.beat-pad__label {
+  pointer-events: none;
+}
+
+.beat-pad__activity {
+  position: absolute;
+
+  top: 7px;
+  right: 7px;
+
+  width: 8px;
+  height: 8px;
+
+  background: var(--olive-light);
+
+  border:
+    1px solid
+    var(--olive);
+
+  border-radius: 50%;
+
+  box-shadow:
+    0 0 7px
+    #c3b41d99;
+
+  pointer-events: none;
+}
+
+.beat-pad:nth-child(4n + 2),
+.beat-pad:nth-child(4n + 3) {
+  background: #577eae;
+}
+
+.beat-pad--selected {
+  outline:
+    2px solid
+    var(--olive-light);
+
+  outline-offset: -3px;
+}
+
+.beat-pad:active,
+.beat-pad--active {
+  color: var(--navy);
+
+  background:
+    var(--olive-light)
+    !important;
+
+  box-shadow:
+    inset 0 -2px 0
+      var(--olive),
+    0 0 18px
+      #c3b41d8c;
+
+  transform:
+    translateY(2px)
+    scale(0.98);
+}
+
+.beat-sequencer {
+  min-width: 0;
+  min-height: 0;
+
+  padding: 8px;
+
+  display: grid;
+
+  grid-template-rows:
+    18px
+    repeat(
+      4,
+      minmax(0, 1fr)
+    );
+
+  gap: 5px;
+
+  background: #17213f;
+
+  border:
+    1px solid
+    #6790c34f;
+
+  border-radius: 12px;
+}
+
+.beat-sequencer__top {
+  min-width: 0;
+
+  display: grid;
+
+  grid-template-columns:
+    159px
+    minmax(0, 1fr);
+
+  gap: 5px;
+}
+
+.beat-bank-tabs {
+  min-width: 0;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      4,
+      minmax(0, 1fr)
+    );
+
+  gap: 3px;
+}
+
+.beat-bank-tabs button {
+  position: relative;
+
+  min-width: 0;
+  min-height: 18px;
+
+  padding: 0;
+
+  color: #94abd0;
+  background: #24365f;
+
+  border:
+    1px solid
+    #6790c34f;
+
+  border-radius: 4px;
+
+  font-size: 0.62rem;
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+.beat-bank-tabs button.is-active {
+  color: var(--olive-light);
+  background: var(--olive);
+
+  border-color: #c3b41d70;
+}
+
+.beat-bank-tabs button span {
+  position: absolute;
+
+  top: 2px;
+  right: 2px;
+
+  width: 5px;
+  height: 5px;
+
+  background: var(--olive-light);
+  border-radius: 50%;
+}
+
+.beat-step-numbers {
+  min-width: 0;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      16,
+      minmax(0, 1fr)
+    );
+
+  gap: 3px;
+
+  color: #94abd0;
+
+  font-size:
+    clamp(
+      0.48rem,
+      0.9vw,
+      0.66rem
+    );
+
+  font-weight: 700;
+  text-align: center;
+}
+
+.beat-track {
+  min-height: 0;
+
+  display: grid;
+
+  grid-template-columns:
+    72px
+    42px
+    30px
+    minmax(0, 1fr);
+
+  align-items: stretch;
+
+  gap: 5px;
+}
+
+.beat-track > strong {
+  min-width: 0;
+
+  padding: 2px;
+
+  display: grid;
+  place-items: center;
+
+  color: var(--navy);
+
+  border-radius: 7px;
+
+  font-size:
+    clamp(
+      0.58rem,
+      1vw,
+      0.78rem
+    );
+
+  text-align: center;
+  line-height: 1.05;
+}
+
+.beat-track.is-selected > strong {
+  box-shadow:
+    inset 0 0 0 2px
+    var(--olive-light);
+}
+
+.beat-track--1 > strong {
+  background: var(--track-1);
+}
+
+.beat-track--2 > strong {
+  background: var(--track-2);
+}
+
+.beat-track--3 > strong {
+  background: var(--track-3);
+}
+
+.beat-track--4 > strong {
+  color: var(--navy);
+  background: var(--track-4);
+}
+
+.beat-track label {
+  min-width: 0;
+}
+
+.beat-track select {
+  width: 100%;
+  height: 100%;
+
+  padding: 0 2px;
+
+  color: var(--olive-light);
+  background: var(--olive);
+
+  border:
+    1px solid
+    #c3b41d70;
+
+  border-radius: 6px;
+
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.beat-track__clear {
+  min-width: 0;
+  min-height: 0;
+
+  padding: 0;
+
+  color: var(--olive-light);
+  background: #24365f;
+
+  border:
+    1px solid
+    #6790c366;
+
+  border-radius: 6px;
+
+  font-size: 1rem;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.beat-track__clear:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.beat-track__steps {
+  min-width: 0;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      16,
+      minmax(0, 1fr)
+    );
+
+  gap: 3px;
+}
+
+.beat-track__steps button {
+  min-width: 0;
+  min-height: 0;
+
+  padding: 0;
+
+  background: #385f8f75;
+
+  border:
+    1px solid
+    #6790c329;
+
+  border-radius: 4px;
+
+  cursor: pointer;
+}
+
+.beat-track__steps button:nth-child(
+  4n + 1
+) {
+  border-left-color: #dce7f278;
+}
+
+.beat-track__steps button.is-set {
+  background: var(--olive-light);
+  border-color: #e6da52;
+
+  box-shadow:
+    0 0 8px
+    #c3b41d80;
+}
+
+.beat-track__steps button.is-playhead {
+  outline: 2px solid #dce7f3;
+  outline-offset: -2px;
+}
+
+.beat-track__steps button:disabled {
+  background: #0f0f286e;
+  border-color: transparent;
+
+  cursor: default;
+  opacity: 0.4;
+}
+
+.beat-transport {
+  min-height: 48px;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      7,
+      minmax(0, 1fr)
+    );
+
+  gap: 6px;
+}
+
+.transport-button {
+  min-width: 0;
+  min-height: 46px;
+
+  padding: 5px 7px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 7px;
+
+  color: #dce7f3;
+  background: #24365f;
+
+  border:
+    1px solid
+    #6790c366;
+
+  border-radius: 8px;
+
+  font-size:
+    clamp(
+      0.58rem,
+      1.2vw,
+      0.78rem
+    );
+
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+.transport-button span {
+  color: var(--olive-light);
+  font-size: 1rem;
+}
+
+.transport-button:disabled {
+  cursor: default;
+  opacity: 0.48;
+}
+
+.record-button span {
+  color: var(--rust-light);
+}
+
+.record-button.is-active {
+  color: #fff;
+  background: var(--rust);
+
+  border-color:
+    var(--rust-light);
+}
+
+.record-button.is-active span {
+  color: #fff;
+}
+
+.play-button.is-active,
+.save-button:active,
+.export-button:active {
+  color: var(--navy);
+  background: var(--olive-light);
+
+  border-color: #e6da52;
+}
+
+.play-button.is-active span,
+.save-button:active span,
+.export-button:active span {
+  color: var(--navy);
+}
+
+.beat-help-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+
+  padding: 18px;
+
+  display: grid;
+  place-items: center;
+
+  background: #050b21bf;
+  backdrop-filter: blur(5px);
+}
+
+.beat-help-dialog {
+  position: relative;
+
+  width:
+    min(
+      92vw,
+      520px
+    );
+
+  max-height: 90vh;
+
+  padding: 24px 28px;
+  overflow-y: auto;
+
+  color: #dce7f3;
+  background: #17213f;
+
+  border:
+    1px solid
+    #6790c370;
+
+  border-radius: 16px;
+
+  box-shadow:
+    0 20px 60px
+    #050b21aa;
+}
+
+.beat-help-dialog h2 {
+  margin:
+    0
+    36px
+    14px
+    0;
+
+  color: var(--olive-light);
+}
+
+.beat-help-dialog ul {
+  padding-left: 20px;
+  line-height: 1.55;
+}
+
+.beat-help-dialog p {
+  margin-bottom: 0;
+
+  color: #b9c9df;
+  line-height: 1.5;
+}
+
+.beat-help-close {
+  position: absolute;
+
+  top: 12px;
+  right: 12px;
+
+  width: 36px;
+  height: 36px;
+
+  padding: 0;
+
+  color: #dce7f3;
+  background: transparent;
+
+  border:
+    1px solid
+    #6790c366;
+
+  border-radius: 50%;
+
+  font-size: 1.4rem;
+  cursor: pointer;
+}
+
+@media (orientation: portrait) {
+  .beat-machine {
+    display: none;
+  }
+}
+
+@media (
+  orientation: landscape
+) and (max-height: 410px) {
+  .beat-machine {
+    gap: 5px;
+  }
+
+  .beat-machine__header {
+    min-height: 38px;
+  }
+
+  .beat-tempo button,
+  .beat-help-button,
+  .beat-kit {
+    min-height: 34px;
+  }
+
+  .beat-pads,
+  .beat-machine__workspace {
+    gap: 5px;
+  }
+
+  .beat-sequencer {
+    padding: 5px;
+    gap: 3px;
+  }
+
+  .beat-transport,
+  .transport-button {
+    min-height: 40px;
+  }
+}
+
+@media (
+  orientation: landscape
+) and (max-width: 800px) {
+  .beat-machine__workspace {
+    grid-template-columns:
+      minmax(300px, 1fr)
+      minmax(360px, 1fr);
+  }
+
+  .beat-kit {
+    padding-inline: 9px;
+  }
+
+  .beat-track {
+    grid-template-columns:
+      62px
+      38px
+      27px
+      minmax(0, 1fr);
+
+    gap: 3px;
+  }
+
+  .beat-sequencer__top {
+    grid-template-columns:
+      136px
+      minmax(0, 1fr);
+
+    gap: 3px;
+  }
+
+  .beat-step-numbers,
+  .beat-bank-tabs {
+    gap: 2px;
+  }
+
+  .beat-track__steps {
+    gap: 2px;
+  }
+
+  .transport-button {
+    gap: 4px;
+  }
+}

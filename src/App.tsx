@@ -13,6 +13,9 @@ import {
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
 import DayPage from "./pages/DayPage";
+import KeyPage from "./pages/KeyPage";
+import DrumMachinePage from "./pages/DrumMachinePage";
+import "./unlocks.css";
 
 function ProtectedRoutes() {
   const { status } = useAuth();
@@ -51,6 +54,11 @@ export default function App() {
             element={<LoginPage />}
           />
 
+          <Route
+            path="/key/beat-it"
+            element={<KeyPage />}
+          />
+
           <Route element={<ProtectedRoutes />}>
             <Route
               path="/"
@@ -61,12 +69,20 @@ export default function App() {
               path="/tag/:day"
               element={<DayPage />}
             />
+
+            <Route
+              path="/tag/16/beat-it"
+              element={<DrumMachinePage />}
+            />
           </Route>
 
           <Route
             path="*"
             element={
-              <Navigate to="/" replace />
+              <Navigate
+                to="/"
+                replace
+              />
             }
           />
         </Routes>

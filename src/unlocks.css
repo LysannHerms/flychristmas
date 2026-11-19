@@ -1,0 +1,247 @@
+.app-unlock-panel {
+  width: min(100%, 430px);
+  margin: 28px auto 0;
+  padding: 22px;
+  color: #f1f4f8;
+  background: var(--navy);
+  border-radius: 12px;
+}
+
+.app-unlock-panel p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.app-unlock-hint {
+  color: #dce7f3;
+}
+
+.app-unlock-form {
+  margin-top: 18px;
+  display: grid;
+  gap: 10px;
+  text-align: left;
+}
+
+.app-unlock-form label {
+  color: var(--olive-light);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.app-unlock-form input {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 13px;
+  color: var(--navy);
+  background: #f7f9fc;
+  border: 2px solid transparent;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.app-unlock-form input:focus-visible {
+  border-color: var(--olive-light);
+  outline: none;
+}
+
+.app-unlock-form button,
+.app-unlock-open {
+  min-height: 48px;
+  display: grid;
+  place-items: center;
+  padding: 11px 18px;
+  color: var(--navy);
+  background: var(--olive-light);
+  border: 0;
+  border-radius: 7px;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.app-unlock-form button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.app-unlock-error {
+  margin-top: 14px !important;
+  color: #ffb5b5;
+  font-size: 14px;
+}
+
+.app-unlock-status {
+  color: #dce7f3;
+}
+
+.app-unlock-panel--open {
+  display: grid;
+  gap: 14px;
+}
+
+.app-unlock-label {
+  color: var(--olive-light);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.key-page {
+  min-height: 100vh;
+  padding: 24px;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(
+      circle at 50% 28%,
+      #263866,
+      transparent 58%
+    ),
+    var(--navy);
+}
+
+.key-card {
+  width: min(100%, 440px);
+  padding: clamp(30px, 8vw, 52px);
+  text-align: center;
+  color: var(--navy);
+  background: var(--blue-light);
+  border: 1px solid #dce7f2;
+  border-radius: 10px 10px 10px 10px;
+  box-shadow: 0 18px 48px #050b2160;
+}
+
+.key-eyebrow {
+  color: var(--olive);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.key-card h1 {
+  margin: 18px 0 12px;
+  font-size: clamp(2.4rem, 10vw, 3.8rem);
+}
+
+.key-card p {
+  line-height: 1.6;
+}
+
+.key-code {
+  width: 100%;
+  min-height: 54px;
+  margin-top: 20px;
+  padding: 10px 12px;
+  color: var(--navy);
+  background: #f7f9fc;
+  border: 2px solid var(--olive-light);
+  border-radius: 8px;
+  font: inherit;
+  font-size: clamp(1rem, 5vw, 1.3rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.key-copy-button {
+  width: 100%;
+  min-height: 50px;
+  margin-top: 12px;
+  padding: 11px 18px;
+  color: var(--blue-light);
+  background: var(--navy);
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.key-error {
+  color: #8e263d;
+}
+
+.drum-machine-gate,
+.drum-machine-page {
+  min-height: 100vh;
+  padding: 20px;
+  display: grid;
+  place-items: center;
+  color: #f1f4f8;
+  background:
+    radial-gradient(
+      circle at 25% 20%,
+      #263866,
+      transparent 55%
+    ),
+    var(--navy);
+}
+
+.drum-machine-gate__card,
+.drum-machine-preview {
+  width: min(100%, 680px);
+  padding: clamp(28px, 6vw, 48px);
+  text-align: center;
+  background: #182345;
+  border: 1px solid #6790c366;
+  border-radius: 18px;
+}
+
+.drum-machine-gate__card h1,
+.drum-machine-preview h1 {
+  margin: 8px 0 12px;
+  color: var(--olive-light);
+}
+
+.drum-machine-gate__card p,
+.drum-machine-preview p {
+  line-height: 1.6;
+}
+
+.drum-machine-gate__card a,
+.drum-machine-preview a {
+  display: inline-block;
+  margin-top: 20px;
+  color: var(--blue-light);
+  text-underline-offset: 4px;
+}
+
+.drum-machine-preview__eyebrow {
+  color: var(--olive-light);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.rotate-device {
+  display: none;
+}
+
+@media (orientation: portrait) and (max-width: 700px) {
+  .drum-machine-preview {
+    display: none;
+  }
+
+  .rotate-device {
+    display: grid;
+    place-items: center;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .rotate-device span {
+    color: var(--olive-light);
+    font-size: 64px;
+  }
+
+  .rotate-device p {
+    margin: 0;
+    font-size: 18px;
+  }
+}
