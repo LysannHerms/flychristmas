@@ -29,6 +29,7 @@ type Pattern = boolean[][];
 interface DrumMachineState {
   pattern: Pattern;
   trackLengths: number[];
+  trackVolumes: number[];
   bpm: number;
 }
 
@@ -38,6 +39,7 @@ const BANK_SIZE = 4;
 const BANK_NAMES = ["CORE", "HITS", "PERC", "USER"];
 const TRACK_LENGTH_OPTIONS = [4, 6, 7, 8, 12, 16];
 const MAX_EXPORT_SECONDS = 5 * 60;
+const DEFAULT_TRACK_VOLUME = 1;
 
 const pads: PadDefinition[] = [
   { id: "kick", label: "KICK" },
@@ -93,10 +95,25 @@ function isValidTrackLengths(value: unknown): value is number[] {
   );
 }
 
+function isValidTrackVolumes(value: unknown): value is number[] {
+  return (
+    Array.isArray(value) &&
+    value.length === pads.length &&
+    value.every(
+      (volume) =>
+        typeof volume === "number" &&
+        Number.isFinite(volume) &&
+        volume >= 0 &&
+        volume <= 1,
+    )
+  );
+}
+
 function readSavedState(): DrumMachineState {
   const fallback: DrumMachineState = {
     pattern: createEmptyPattern(),
     trackLengths: pads.map(() => 16),
+    trackVolumes: pads.map(() => DEFAULT_TRACK_VOLUME),
     bpm: 112,
   };
 
@@ -107,6 +124,7 @@ function readSavedState(): DrumMachineState {
     const saved = JSON.parse(rawValue) as {
       pattern?: unknown;
       trackLengths?: unknown;
+      trackVolumes?: unknown;
       bpm?: unknown;
     };
 
@@ -117,6 +135,9 @@ function readSavedState(): DrumMachineState {
       trackLengths: isValidTrackLengths(saved.trackLengths)
         ? saved.trackLengths
         : fallback.trackLengths,
+      trackVolumes: isValidTrackVolumes(saved.trackVolumes)
+        ? saved.trackVolumes
+        : fallback.trackVolumes,
       bpm:
         typeof saved.bpm === "number"
           ? Math.min(180, Math.max(60, saved.bpm))
@@ -148,6 +169,9 @@ export default function DrumMachine() {
   const [trackLengths, setTrackLengths] = useState<number[]>(
     initialState.trackLengths,
   );
+  const [trackVolumes, setTrackVolumes] = useState<number[]>(
+    initialState.trackVolumes,
+  );
   const [bpm, setBpm] = useState(initialState.bpm);
   const [selectedBank, setSelectedBank] = useState(0);
   const [selectedTrack, setSelectedTrack] = useState<
@@ -174,9 +198,13 @@ export default function DrumMachine() {
   const [exportMinutes, setExportMinutes] = useState(0);
   const [exportSeconds, setExportSeconds] = useState(30);
   const [undoDepth, setUndoDepth] = useState(0);
+  const [volumeEditorTrack, setVolumeEditorTrack] = useState<
+    number | null
+  >(null);
 
   const patternRef = useRef<Pattern>(pattern);
   const trackLengthsRef = useRef<number[]>(trackLengths);
+  const trackVolumesRef = useRef<number[]>(trackVolumes);
   const bpmRef = useRef<number>(bpm);
   const playingRef = useRef(false);
   const recordingRef = useRef(false);
@@ -199,8 +227,38 @@ export default function DrumMachine() {
   }, [trackLengths]);
 
   useEffect(() => {
+    trackVolumesRef.current = trackVolumes;
+  }, [trackVolumes]);
+
+  useEffect(() => {
     bpmRef.current = bpm;
   }, [bpm]);
+
+  useEffect(() => {
+    if (volumeEditorTrack === null) return;
+
+    function closeVolumeEditor(event: PointerEvent) {
+      const target = event.target;
+
+      if (
+        target instanceof Element &&
+        target.closest("[data-volume-control]")
+      ) {
+        return;
+      }
+
+      setVolumeEditorTrack(null);
+    }
+
+    document.addEventListener("pointerdown", closeVolumeEditor);
+
+    return () => {
+      document.removeEventListener(
+        "pointerdown",
+        closeVolumeEditor,
+      );
+    };
+  }, [volumeEditorTrack]);
 
   useEffect(() => {
     let cancelled = false;
@@ -333,7 +391,11 @@ export default function DrumMachine() {
         const stepIndex = scheduledTick % length;
 
         if (patternRef.current[trackIndex][stepIndex]) {
-          triggerDrumSound(pad.id, scheduledTime);
+          triggerDrumSound(
+            pad.id,
+            scheduledTime,
+            trackVolumesRef.current[trackIndex],
+          );
         }
       });
 
@@ -461,7 +523,11 @@ export default function DrumMachine() {
     try {
       const context = await restartAudio();
       const hitTime = context.currentTime;
-      triggerDrumSound(pad.id, hitTime);
+      triggerDrumSound(
+        pad.id,
+        hitTime,
+        trackVolumesRef.current[trackIndex],
+      );
 
       if (recordingRef.current) {
         recordPadHit(trackIndex, hitTime);
@@ -499,6 +565,27 @@ export default function DrumMachine() {
       trackLengthsRef.current = nextLengths;
       return nextLengths;
     });
+  }
+
+  function changeTrackVolume(
+    trackIndex: number,
+    nextVolume: number,
+  ) {
+    const volume = Math.max(0, Math.min(1, nextVolume));
+
+    setTrackVolumes((currentVolumes) => {
+      const nextVolumes = currentVolumes.map(
+        (currentVolume, index) =>
+          index === trackIndex ? volume : currentVolume,
+      );
+
+      trackVolumesRef.current = nextVolumes;
+      return nextVolumes;
+    });
+  }
+
+  function resetTrackVolume(trackIndex: number) {
+    changeTrackVolume(trackIndex, DEFAULT_TRACK_VOLUME);
   }
 
   function undo() {
@@ -539,7 +626,12 @@ export default function DrumMachine() {
   function savePattern() {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ pattern, trackLengths, bpm }),
+      JSON.stringify({
+        pattern,
+        trackLengths,
+        trackVolumes,
+        bpm,
+      }),
     );
     setSaveMessage("GESPEICHERT");
     window.setTimeout(() => setSaveMessage(""), 1600);
@@ -578,6 +670,7 @@ export default function DrumMachine() {
       const wavBlob = await renderBeatToWav({
         pattern,
         trackLengths,
+        trackVolumes,
         soundIds: pads.map((pad) => pad.id),
         bpm,
         durationSeconds,
@@ -611,7 +704,14 @@ export default function DrumMachine() {
     try {
       await setCustomPadSample(soundId, file);
       setSampleInfos(readSampleInfos());
-      triggerDrumSound(soundId);
+      const trackIndex = pads.findIndex(
+        (pad) => pad.id === soundId,
+      );
+      triggerDrumSound(
+        soundId,
+        undefined,
+        trackVolumesRef.current[trackIndex] ?? 1,
+      );
       setSampleMessage(`${file.name} ist dem Pad zugewiesen.`);
     } catch (error) {
       setSampleMessage(getErrorMessage(error));
@@ -634,7 +734,14 @@ export default function DrumMachine() {
   async function previewSample(soundId: DrumSoundId) {
     try {
       await restartAudio();
-      triggerDrumSound(soundId);
+      const trackIndex = pads.findIndex(
+        (pad) => pad.id === soundId,
+      );
+      triggerDrumSound(
+        soundId,
+        undefined,
+        trackVolumesRef.current[trackIndex] ?? 1,
+      );
     } catch {
       // restartAudio zeigt den Fehler bereits an.
     }
@@ -795,7 +902,32 @@ export default function DrumMachine() {
                   .join(" ")}
                 key={pad.id}
               >
-                <strong>{pad.label}</strong>
+                <strong data-volume-control>
+                  <button
+                    className="beat-track__name-button"
+                    type="button"
+                    onClick={() => {
+                      setSelectedTrack(trackIndex);
+                      setVolumeEditorTrack((currentTrack) =>
+                        currentTrack === trackIndex
+                          ? null
+                          : trackIndex,
+                      );
+                    }}
+                    aria-expanded={
+                      volumeEditorTrack === trackIndex
+                    }
+                    aria-label={`${pad.label}: Lautstärke einstellen`}
+                  >
+                    <span>{pad.label}</span>
+                    <small>
+                      {Math.round(
+                        trackVolumes[trackIndex] * 100,
+                      )}
+                      %
+                    </small>
+                  </button>
+                </strong>
 
                 <label>
                   <span className="sr-only">
@@ -862,6 +994,48 @@ export default function DrumMachine() {
                     },
                   )}
                 </div>
+
+                {volumeEditorTrack === trackIndex && (
+                  <div
+                    className="beat-volume-editor"
+                    data-volume-control
+                  >
+                    <label>
+                      <span>
+                        {pad.label} · {Math.round(
+                          trackVolumes[trackIndex] * 100,
+                        )}
+                        %
+                      </span>
+
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={Math.round(
+                          trackVolumes[trackIndex] * 100,
+                        )}
+                        onChange={(event) =>
+                          changeTrackVolume(
+                            trackIndex,
+                            Number(event.target.value) / 100,
+                          )
+                        }
+                        aria-label={`Lautstärke ${pad.label}`}
+                      />
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        resetTrackVolume(trackIndex)
+                      }
+                    >
+                      RESET
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -1025,6 +1199,10 @@ export default function DrumMachine() {
               <li>
                 Die Zahl neben jeder Spur bestimmt ihre eigene
                 Loop-Länge.
+              </li>
+              <li>
+                Tippe auf den Namen einer Spur, um ihre Lautstärke
+                einzustellen. RESET setzt sie wieder auf 100 %.
               </li>
               <li>
                 SOUNDS weist Pads eigene Audiodateien zu. Diese werden

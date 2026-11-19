@@ -698,6 +698,103 @@
   opacity: 0.4;
 }
 
+/* Lautstärke pro Spur – ergänzt, ohne bestehende Track-Styles zu ändern. */
+.beat-track {
+  position: relative;
+}
+
+.beat-track__name-button {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+
+  padding: 3px;
+
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: inherit;
+
+  font: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.beat-track__name-button small {
+  color: currentColor;
+  font-size: 0.52rem;
+  font-weight: 800;
+  opacity: 0.68;
+}
+
+.beat-volume-editor {
+  position: absolute;
+  z-index: 18;
+  left: 0;
+  width: min(520px, calc(100vw - 34px));
+  max-width: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+
+  min-height: 46px;
+  padding: 6px 8px;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+
+  color: #dce7f3;
+  background: #17213ff2;
+  border: 1px solid #6790c3a6;
+  border-radius: 8px;
+  box-shadow: 0 7px 18px #050b2199;
+  backdrop-filter: blur(4px);
+}
+
+.beat-volume-editor label {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 4px;
+}
+
+.beat-volume-editor label span {
+  color: #dce7f3;
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.beat-volume-editor input[type="range"] {
+  width: 100%;
+  min-width: 100px;
+  accent-color: var(--olive-light);
+  cursor: pointer;
+}
+
+.beat-volume-editor > button {
+  min-height: 34px;
+  padding: 5px 9px;
+
+  color: var(--navy);
+  background: var(--olive-light);
+  border: 1px solid #e6da52;
+  border-radius: 6px;
+
+  font-size: 0.58rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .beat-transport {
   min-height: 48px;
 

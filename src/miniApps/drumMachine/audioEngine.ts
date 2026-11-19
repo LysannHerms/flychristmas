@@ -30,6 +30,7 @@ export interface PadSampleInfo {
 interface BeatExportOptions {
   pattern: boolean[][];
   trackLengths: number[];
+  trackVolumes: number[];
   soundIds: DrumSoundId[];
   bpm: number;
   durationSeconds: number;
@@ -79,6 +80,7 @@ let storedSamplesPromise: Promise<void> | null = null;
 const defaultSampleBuffers = new Map<DrumSoundId, AudioBuffer>();
 const customSampleBuffers = new Map<DrumSoundId, AudioBuffer>();
 const customSampleNames = new Map<DrumSoundId, string>();
+const liveTrackOutputs = new Map<DrumSoundId, GainNode>();
 
 function getAudioContext(): AudioContext {
   if (!audioContext || audioContext.state === "closed") {
@@ -102,6 +104,7 @@ function getAudioContext(): AudioContext {
       audioContext = new AudioContextConstructor();
     }
     masterOutput = null;
+    liveTrackOutputs.clear();
   }
 
   return audioContext;
@@ -197,6 +200,19 @@ function getMasterOutput(context: AudioContext) {
     masterOutput = createMasterOutput(context);
   }
   return masterOutput;
+}
+
+function getLiveTrackOutput(
+  context: AudioContext,
+  soundId: DrumSoundId,
+) {
+  const existingOutput = liveTrackOutputs.get(soundId);
+  if (existingOutput) return existingOutput;
+
+  const output = context.createGain();
+  output.connect(getMasterOutput(context));
+  liveTrackOutputs.set(soundId, output);
+  return output;
 }
 
 function decodeSample(context: AudioContext, data: ArrayBuffer) {
@@ -700,13 +716,20 @@ function scheduleDrumSound(
 export function triggerDrumSound(
   soundId: DrumSoundId,
   scheduledTime?: number,
+  volume = 1,
 ): void {
   const context = getAudioContext();
-  const output = getMasterOutput(context);
   const when = Math.max(
     context.currentTime,
     scheduledTime ?? context.currentTime,
   );
+  const output = getLiveTrackOutput(context, soundId);
+
+  output.gain.setValueAtTime(
+    Math.max(0, Math.min(1, volume)),
+    when,
+  );
+
   scheduleDrumSound(context, output, soundId, when);
 }
 
@@ -773,6 +796,7 @@ function audioBufferToWav(buffer: AudioBuffer) {
 export async function renderBeatToWav({
   pattern,
   trackLengths,
+  trackVolumes,
   soundIds,
   bpm,
   durationSeconds,
@@ -798,7 +822,17 @@ export async function renderBeatToWav({
     frameCount,
     sampleRate,
   );
-  const output = createMasterOutput(context);
+  const master = createMasterOutput(context);
+
+  const trackOutputs = soundIds.map((_, trackIndex) => {
+    const output = context.createGain();
+    output.gain.value = Math.max(
+      0,
+      Math.min(1, trackVolumes[trackIndex] ?? 1),
+    );
+    output.connect(master);
+    return output;
+  });
 
   for (let tick = 0; tick < totalSteps; tick += 1) {
     const when = tick * stepDuration;
@@ -811,7 +845,12 @@ export async function renderBeatToWav({
 
       const stepIndex = tick % length;
       if (track[stepIndex]) {
-        scheduleDrumSound(context, output, soundId, when);
+        scheduleDrumSound(
+          context,
+          trackOutputs[trackIndex],
+          soundId,
+          when,
+        );
       }
     });
   }
