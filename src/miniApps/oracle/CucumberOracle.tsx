@@ -1,33 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { MiniAppProps } from "../miniAppRegistry";
 
-import Gurke1 from "../../assets/decorations/cucumbers/Gurke1.png";
-import Gurke2 from "../../assets/decorations/cucumbers/Gurke2.png";
-import Gurke3 from "../../assets/decorations/cucumbers/Gurke3.png";
-import Gurke4 from "../../assets/decorations/cucumbers/Gurke4.png";
-import Gurke5 from "../../assets/decorations/cucumbers/Gurke5.png";
-import Gurke6 from "../../assets/decorations/cucumbers/Gurke6.png";
-import Gurke7 from "../../assets/decorations/cucumbers/Gurke7.png";
-import Gurke8 from "../../assets/decorations/cucumbers/Gurke8.png";
-import Gurke9 from "../../assets/decorations/cucumbers/Gurke9.png";
-import Gurke10 from "../../assets/decorations/cucumbers/Gurke10.png";
+import Oracle1 from "../../assets/decorations/oracle/oracle1.png";
+import Oracle2 from "../../assets/decorations/oracle/oracle2.png";
+import Oracle3 from "../../assets/decorations/oracle/oracle3.png";
 
 import "./miniApps.css";
 
-const cucumberImages = [
-  Gurke1,
-  Gurke2,
-  Gurke3,
-  Gurke4,
-  Gurke5,
-  Gurke6,
-  Gurke7,
-  Gurke8,
-  Gurke9,
-  Gurke10,
-];
-
-const animationCucumbers = cucumberImages.slice(0, 6);
+const oracleImages = [Oracle1, Oracle2, Oracle3];
+const sparkleCount = 14;
 
 export default function CucumberOracle({
   item,
@@ -94,12 +75,23 @@ export default function CucumberOracle({
         setIsConsulting(false);
         timer.current = null;
       },
-      1400,
+      1800,
     );
   }
 
+  const isActive =
+    isConsulting || resultIndex !== null;
+
   return (
-    <section className="cucumber-oracle">
+    <section
+      className={[
+        "cucumber-oracle",
+        isActive ? "cucumber-oracle--active" : "",
+        resultIndex !== null ? "cucumber-oracle--result" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
       {answers.length === 0 ? (
         <p className="cucumber-oracle__empty">
           Das Orakel sammelt noch seine Gedanken.
@@ -111,48 +103,80 @@ export default function CucumberOracle({
             aria-live="polite"
             aria-busy={isConsulting}
           >
-            {isConsulting && (
+            <div className="cucumber-oracle__mist" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+
+            <div
+              className={[
+                "cucumber-oracle__sparkles",
+                isConsulting ? "is-consulting" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              aria-hidden="true"
+            >
+              {Array.from({ length: sparkleCount }, (_, index) => (
+                <i key={index} />
+              ))}
+            </div>
+
+            {resultIndex === null && (
               <div
-                className="cucumber-oracle__cloud"
+                className={[
+                  "cucumber-oracle__council",
+                  isConsulting ? "is-consulting" : "is-idle",
+                ].join(" ")}
                 aria-hidden="true"
               >
-                {animationCucumbers.map(
-                  (image, index) => (
-                    <img
+                {isConsulting ? (
+                  oracleImages.map((image, index) => (
+                    <span
+                      className={`cucumber-oracle__cucumber cucumber-oracle__cucumber--${index + 1}`}
                       key={image}
-                      className={`cucumber-oracle__floating cucumber-oracle__floating--${index + 1}`}
-                      src={image}
-                      alt=""
-                    />
-                  ),
+                    >
+                      <img src={image} alt="" />
+                    </span>
+                  ))
+                ) : (
+                  <span className="cucumber-oracle__cucumber cucumber-oracle__cucumber--1 cucumber-oracle__cucumber--idle">
+                    <img src={Oracle1} alt="" />
+                  </span>
+                )}
+
+                {isConsulting ? (
+                  <span className="cucumber-oracle__thinking-dots">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                ) : (
+                  <span className="cucumber-oracle__question">?</span>
                 )}
               </div>
             )}
 
             {!isConsulting &&
-              resultIndex === null && (
-                <div
-                  className="cucumber-oracle__idle"
-                  aria-hidden="true"
-                >
-                  <img src={Gurke1} alt="" />
-                  <span>?</span>
-                </div>
-              )}
-
-            {!isConsulting &&
               resultIndex !== null && (
                 <div className="cucumber-oracle__result">
-                  <img
-                    className="cucumber-oracle__result-image"
-                    src={
-                      cucumberImages[
-                        resultIndex %
-                          cucumberImages.length
-                      ]
-                    }
-                    alt=""
-                  />
+                  <div
+                    className="cucumber-oracle__result-visual"
+                    aria-hidden="true"
+                  >
+                    <img
+                      className={`cucumber-oracle__result-image cucumber-oracle__result-image--${
+                        (resultIndex % oracleImages.length) + 1
+                      }`}
+                      src={
+                        oracleImages[
+                          resultIndex % oracleImages.length
+                        ]
+                      }
+                      alt=""
+                    />
+                  </div>
 
                   <p className="cucumber-oracle__answer">
                     {answers[resultIndex]}
