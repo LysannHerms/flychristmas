@@ -520,9 +520,17 @@ export default function DrumMachine() {
 
   return (
     <section
-      className="beat-machine"
-      aria-label="Beat It Drum Machine"
-    >
+  className="beat-machine"
+  aria-label="Beat It Drum Machine"
+  onPointerDown={() => {
+    void prepareAudio().catch((error) => {
+      console.error(
+        "Audio konnte nicht aktiviert werden:",
+        error,
+      );
+    });
+  }}
+>
       <header className="beat-machine__header">
         <div className="beat-machine__title">
           <span>BEAT</span> IT

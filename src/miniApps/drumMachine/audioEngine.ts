@@ -27,12 +27,40 @@ interface BeatExportOptions {
 let audioContext: AudioContext | null = null;
 let masterOutput: AudioNode | null = null;
 
-function getAudioContext() {
-  if (!audioContext) {
-    audioContext = new AudioContext();
+interface WebKitWindow extends Window {
+  webkitAudioContext?: typeof AudioContext;
+}
+
+function getAudioContext(): AudioContext {
+  if (!audioContext || audioContext.state === "closed") {
+    const AudioContextConstructor =
+      window.AudioContext ??
+      (window as WebKitWindow).webkitAudioContext;
+
+    if (!AudioContextConstructor) {
+      throw new Error(
+        "Dieser Browser unterstützt die Web Audio API nicht.",
+      );
+    }
+
+    audioContext = new AudioContextConstructor();
+    masterOutput = null;
   }
 
   return audioContext;
+}
+
+function playSilentUnlockSound(context: AudioContext) {
+  const buffer = context.createBuffer(
+    1,
+    1,
+    context.sampleRate,
+  );
+
+  const source = context.createBufferSource();
+  source.buffer = buffer;
+  source.connect(context.destination);
+  source.start(0);
 }
 
 function createMasterOutput(context: BaseAudioContext) {
@@ -64,7 +92,10 @@ function getMasterOutput(context: AudioContext) {
 export async function prepareAudio() {
   const context = getAudioContext();
 
-  if (context.state === "suspended") {
+  // Aktiviert Web Audio auf iPhone und iPad
+  playSilentUnlockSound(context);
+
+  if (context.state !== "running") {
     await context.resume();
   }
 
