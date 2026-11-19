@@ -25,6 +25,7 @@ interface ScheduledStep {
 }
 
 type Pattern = boolean[][];
+type ViewMode = "edit" | "overview";
 
 interface DrumMachineState {
   pattern: Pattern;
@@ -174,6 +175,7 @@ export default function DrumMachine() {
   );
   const [bpm, setBpm] = useState(initialState.bpm);
   const [selectedBank, setSelectedBank] = useState(0);
+  const [viewMode, setViewMode] = useState<ViewMode>("edit");
   const [selectedTrack, setSelectedTrack] = useState<
     number | null
   >(null);
@@ -755,6 +757,41 @@ export default function DrumMachine() {
   const patternHasSounds = pattern.some((track) =>
     track.some(Boolean),
   );
+  const activeTrackIndexes = pattern
+    .map((track, trackIndex) =>
+      track.some(Boolean) ? trackIndex : -1,
+    )
+    .filter((trackIndex) => trackIndex >= 0);
+  const volumeEditorPad =
+    volumeEditorTrack === null ? null : pads[volumeEditorTrack];
+
+  function renderStepButtons(trackIndex: number) {
+    const pad = pads[trackIndex];
+
+    return Array.from({ length: STEP_COUNT }, (_, stepIndex) => {
+      const hasSound = pattern[trackIndex][stepIndex];
+      const isOutsideLoop = stepIndex >= trackLengths[trackIndex];
+      const isPlayhead = playheads[trackIndex] === stepIndex;
+
+      return (
+        <button
+          key={stepIndex}
+          type="button"
+          disabled={isOutsideLoop}
+          className={[
+            hasSound ? "is-set" : "",
+            isPlayhead ? "is-playhead" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          onClick={() => toggleStep(trackIndex, stepIndex)}
+          aria-label={`${pad.label}, Schritt ${stepIndex + 1}${
+            hasSound ? ", gesetzt" : ""
+          }`}
+        />
+      );
+    });
+  }
 
   return (
     <section
@@ -763,7 +800,26 @@ export default function DrumMachine() {
     >
       <header className="beat-machine__header">
         <div className="beat-machine__title">
-          <span>BEAT</span> IT
+          <span>DRUM</span> MACHINE
+        </div>
+
+        <div className="beat-view-toggle" aria-label="Anzeige wählen">
+          <button
+            className={viewMode === "edit" ? "is-active" : ""}
+            type="button"
+            onClick={() => setViewMode("edit")}
+            aria-pressed={viewMode === "edit"}
+          >
+            EDIT
+          </button>
+          <button
+            className={viewMode === "overview" ? "is-active" : ""}
+            type="button"
+            onClick={() => setViewMode("overview")}
+            aria-pressed={viewMode === "overview"}
+          >
+            ÜBERSICHT
+          </button>
         </div>
 
         <button
@@ -816,6 +872,7 @@ export default function DrumMachine() {
         </button>
       </header>
 
+      {viewMode === "edit" ? (
       <div className="beat-machine__workspace">
         <div className="beat-pads" aria-label="Drum Pads">
           {pads.map((pad, trackIndex) => {
@@ -962,85 +1019,81 @@ export default function DrumMachine() {
                 </button>
 
                 <div className="beat-track__steps">
-                  {Array.from(
-                    { length: STEP_COUNT },
-                    (_, stepIndex) => {
-                      const hasSound =
-                        pattern[trackIndex][stepIndex];
-                      const isOutsideLoop =
-                        stepIndex >= trackLengths[trackIndex];
-                      const isPlayhead =
-                        playheads[trackIndex] === stepIndex;
-
-                      return (
-                        <button
-                          key={stepIndex}
-                          type="button"
-                          disabled={isOutsideLoop}
-                          className={[
-                            hasSound ? "is-set" : "",
-                            isPlayhead ? "is-playhead" : "",
-                          ]
-                            .filter(Boolean)
-                            .join(" ")}
-                          onClick={() =>
-                            toggleStep(trackIndex, stepIndex)
-                          }
-                          aria-label={`${pad.label}, Schritt ${
-                            stepIndex + 1
-                          }${hasSound ? ", gesetzt" : ""}`}
-                        />
-                      );
-                    },
-                  )}
+                  {renderStepButtons(trackIndex)}
                 </div>
-
-                {volumeEditorTrack === trackIndex && (
-                  <div
-                    className="beat-volume-editor"
-                    data-volume-control
-                  >
-                    <label>
-                      <span>
-                        {pad.label} · {Math.round(
-                          trackVolumes[trackIndex] * 100,
-                        )}
-                        %
-                      </span>
-
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={Math.round(
-                          trackVolumes[trackIndex] * 100,
-                        )}
-                        onChange={(event) =>
-                          changeTrackVolume(
-                            trackIndex,
-                            Number(event.target.value) / 100,
-                          )
-                        }
-                        aria-label={`Lautstärke ${pad.label}`}
-                      />
-                    </label>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        resetTrackVolume(trackIndex)
-                      }
-                    >
-                      RESET
-                    </button>
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
       </div>
+      ) : (
+        <section
+          className="beat-overview"
+          aria-label="Übersicht der aktiven Spuren"
+        >
+          <div className="beat-overview__header">
+            <strong>AKTIVE SPUREN</strong>
+            <span>{activeTrackIndexes.length}</span>
+          </div>
+
+          {activeTrackIndexes.length === 0 ? (
+            <div className="beat-overview__empty">
+              Noch keine Steps gesetzt. Wechsle zu EDIT und baue deinen
+              Beat.
+            </div>
+          ) : (
+            <div className="beat-overview__tracks">
+              {activeTrackIndexes.map((trackIndex) => {
+                const pad = pads[trackIndex];
+                const colorIndex = (trackIndex % BANK_SIZE) + 1;
+
+                return (
+                  <div
+                    className={[
+                      "beat-overview-track",
+                      `beat-overview-track--${colorIndex}`,
+                      selectedTrack === trackIndex ? "is-selected" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    key={pad.id}
+                  >
+                    <strong data-volume-control>
+                      <button
+                        className="beat-track__name-button"
+                        type="button"
+                        onClick={() => {
+                          setSelectedTrack(trackIndex);
+                          setVolumeEditorTrack((currentTrack) =>
+                            currentTrack === trackIndex
+                              ? null
+                              : trackIndex,
+                          );
+                        }}
+                        aria-expanded={
+                          volumeEditorTrack === trackIndex
+                        }
+                        aria-label={`${pad.label}: Lautstärke einstellen`}
+                      >
+                        <span>{pad.label}</span>
+                        <small>
+                          {Math.round(trackVolumes[trackIndex] * 100)}%
+                          {" · "}
+                          {trackLengths[trackIndex]} STEPS
+                        </small>
+                      </button>
+                    </strong>
+
+                    <div className="beat-overview-track__steps">
+                      {renderStepButtons(trackIndex)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       <footer className="beat-transport">
         <button
@@ -1161,6 +1214,51 @@ export default function DrumMachine() {
         </button>
       </footer>
 
+      {volumeEditorTrack !== null && volumeEditorPad && (
+        <div className="beat-volume-overlay" role="presentation">
+          <section
+            className="beat-volume-editor"
+            data-volume-control
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Lautstärke ${volumeEditorPad.label}`}
+          >
+            <label>
+              <span>
+                {volumeEditorPad.label} · {Math.round(
+                  trackVolumes[volumeEditorTrack] * 100,
+                )}
+                %
+              </span>
+
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={Math.round(
+                  trackVolumes[volumeEditorTrack] * 100,
+                )}
+                onChange={(event) =>
+                  changeTrackVolume(
+                    volumeEditorTrack,
+                    Number(event.target.value) / 100,
+                  )
+                }
+                aria-label={`Lautstärke ${volumeEditorPad.label}`}
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={() => resetTrackVolume(volumeEditorTrack)}
+            >
+              RESET
+            </button>
+          </section>
+        </div>
+      )}
+
       {helpOpen && (
         <div
           className="beat-help-backdrop"
@@ -1203,6 +1301,10 @@ export default function DrumMachine() {
               <li>
                 Tippe auf den Namen einer Spur, um ihre Lautstärke
                 einzustellen. RESET setzt sie wieder auf 100 %.
+              </li>
+              <li>
+                EDIT zeigt Pads und große Steps. ÜBERSICHT zeigt alle
+                belegten Spuren vollständig und ohne seitliches Scrollen.
               </li>
               <li>
                 SOUNDS weist Pads eigene Audiodateien zu. Diese werden
