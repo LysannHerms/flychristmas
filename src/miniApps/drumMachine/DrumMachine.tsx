@@ -151,6 +151,7 @@ export default function DrumMachine() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [exportMessage, setExportMessage] = useState("");
+  const [htmlAudioStatus, setHtmlAudioStatus] = useState("");
 
   const patternRef = useRef<Pattern>(pattern);
   const trackLengthsRef = useRef<number[]>(trackLengths);
@@ -162,6 +163,7 @@ export default function DrumMachine() {
   const schedulerRef = useRef<number | null>(null);
   const playheadTimeoutsRef = useRef<number[]>([]);
   const undoStackRef = useRef<Pattern[]>([]);
+  const testAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     patternRef.current = pattern;
@@ -216,6 +218,9 @@ export default function DrumMachine() {
       }
 
       clearPlayheadTimeouts();
+
+      testAudioRef.current?.pause();
+      testAudioRef.current = null;
     };
   }, []);
 
@@ -504,6 +509,63 @@ export default function DrumMachine() {
     window.setTimeout(() => {
       setExportMessage("");
     }, 1800);
+  }
+
+  async function testHtmlAudio() {
+    const testUrl =
+      `${import.meta.env.BASE_URL}sounds/audio-test.wav`;
+
+    if (testAudioRef.current) {
+      testAudioRef.current.pause();
+      testAudioRef.current.currentTime = 0;
+    }
+
+    const audio = new Audio(testUrl);
+
+    audio.preload = "auto";
+    audio.volume = 1;
+
+    testAudioRef.current = audio;
+    setHtmlAudioStatus("TEST LÄUFT …");
+
+    audio.addEventListener(
+      "ended",
+      () => {
+        setHtmlAudioStatus("DATEI WURDE ABGESPIELT");
+      },
+      { once: true },
+    );
+
+    audio.addEventListener(
+      "error",
+      () => {
+        const errorCode = audio.error?.code;
+
+        setHtmlAudioStatus(
+          errorCode
+            ? `AUDIO-FEHLER ${errorCode}`
+            : "AUDIO KANN NICHT GELADEN WERDEN",
+        );
+      },
+      { once: true },
+    );
+
+    try {
+      await audio.play();
+
+      setHtmlAudioStatus(
+        "PLAY() ERFOLGREICH – HÖRST DU TON?",
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unbekannter Fehler";
+
+      setHtmlAudioStatus(
+        `PLAY-FEHLER: ${message}`,
+      );
+    }
   }
 
   const firstVisibleTrack =
@@ -970,6 +1032,23 @@ export default function DrumMachine() {
               USER 1–4 bekommen später deine persönlichen
               Samples.
             </p>
+
+            <div className="beat-audio-test">
+              <strong>iPhone-Audiotest</strong>
+
+              <button
+                type="button"
+                onClick={() => void testHtmlAudio()}
+              >
+                WAV DIREKT ABSPIELEN
+              </button>
+
+              {htmlAudioStatus && (
+                <output aria-live="polite">
+                  {htmlAudioStatus}
+                </output>
+              )}
+            </div>
           </section>
         </div>
       )}

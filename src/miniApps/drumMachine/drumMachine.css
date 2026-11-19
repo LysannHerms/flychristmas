@@ -798,7 +798,41 @@
   font-size: 1.4rem;
   cursor: pointer;
 }
+.beat-audio-test {
+  margin-top: 18px;
+  padding-top: 18px;
 
+  display: grid;
+  gap: 10px;
+
+  border-top: 1px solid #6790c34d;
+}
+
+.beat-audio-test strong {
+  color: var(--olive-light);
+}
+
+.beat-audio-test button {
+  min-height: 44px;
+  padding: 8px 14px;
+
+  color: var(--navy);
+  background: var(--olive-light);
+
+  border: 1px solid #e6da52;
+  border-radius: 8px;
+
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.beat-audio-test output {
+  color: #dce7f3;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
 @media (orientation: portrait) {
   .beat-machine {
     display: none;
