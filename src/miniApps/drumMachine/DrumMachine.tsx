@@ -269,23 +269,27 @@ export default function DrumMachine() {
       });
 
       const timeoutId = window.setTimeout(() => {
-        audibleTickRef.current = scheduledTick;
-
         const kickLength =
           trackLengthsRef.current[0];
 
         const kickStep =
           scheduledTick % kickLength;
 
-        if (patternRef.current[0][kickStep]) {
-          playKickSample();
-        }
+        const updatePlayhead = () => {
+          audibleTickRef.current = scheduledTick;
 
-        setPlayheads(
-          trackLengthsRef.current.map(
-            (length) => scheduledTick % length,
-          ),
-        );
+          setPlayheads(
+            trackLengthsRef.current.map(
+              (length) => scheduledTick % length,
+            ),
+          );
+        };
+
+        if (patternRef.current[0][kickStep]) {
+          void playKickSample().finally(updatePlayhead);
+        } else {
+          updatePlayhead();
+        }
       }, delay);
 
       playheadTimeoutsRef.current.push(timeoutId);
@@ -360,7 +364,7 @@ export default function DrumMachine() {
     trackIndex: number,
   ) {
     if (pad.id === "kick") {
-      playKickSample();
+      void playKickSample();
     } else {
       triggerDrumSound(pad.id);
     }
@@ -600,7 +604,7 @@ export default function DrumMachine() {
     }
   }
 
-  function playKickSample() {
+  async function playKickSample() {
     const sampleUrl =
       `${import.meta.env.BASE_URL}sounds/audio-test.wav`;
 
@@ -617,7 +621,9 @@ export default function DrumMachine() {
     audio.pause();
     audio.currentTime = 0;
 
-    void audio.play().catch((error: unknown) => {
+    try {
+      await audio.play();
+    } catch (error: unknown) {
       const message =
         error instanceof Error
           ? error.message
@@ -626,7 +632,7 @@ export default function DrumMachine() {
       setHtmlAudioStatus(
         `KICK-SAMPLE-FEHLER: ${message}`,
       );
-    });
+    }
   }
 
   const firstVisibleTrack =
@@ -1116,3 +1122,6 @@ export default function DrumMachine() {
     </section>
   );
 }
+
+
+
