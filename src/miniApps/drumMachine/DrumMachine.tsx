@@ -652,11 +652,11 @@ export default function DrumMachine() {
   return (
     <section
       className="beat-machine"
-      aria-label="Drum Machine"
+      aria-label="Beat It Drum Machine"
     >
       <header className="beat-machine__header">
         <div className="beat-machine__title">
-          <span>DRUM</span> MACHINE
+          <span>BEAT</span> IT
         </div>
 
         <button
@@ -666,15 +666,7 @@ export default function DrumMachine() {
               : "beat-audio-button"
           }
           type="button"
-          onPointerDown={(event) => {
-            event.preventDefault();
-            void restartAudio(true);
-          }}
-          onClick={(event) => {
-            if (event.detail === 0) {
-              void restartAudio(true);
-            }
-          }}
+          onClick={() => void restartAudio(true)}
           aria-pressed={audioVerified}
         >
           <span aria-hidden="true">●</span>
@@ -1048,16 +1040,9 @@ export default function DrumMachine() {
               <strong>Audio</strong>
               <button
                 type="button"
-                onPointerDown={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  void restartAudio(true);
-                }}
                 onClick={(event) => {
                   event.stopPropagation();
-                  if (event.detail === 0) {
-                    void restartAudio(true);
-                  }
+                  void restartAudio(true);
                 }}
               >
                 AUDIO NEU STARTEN

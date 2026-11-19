@@ -72,6 +72,7 @@ const DEFAULT_SAMPLE_NAMES: Partial<
 
 let audioContext: AudioContext | null = null;
 let masterOutput: AudioNode | null = null;
+let unlockAudio: HTMLAudioElement | null = null;
 let defaultSamplesPromise: Promise<void> | null = null;
 let storedSamplesPromise: Promise<void> | null = null;
 
@@ -114,26 +115,22 @@ function playSilentUnlockSound(context: AudioContext) {
   source.start(0);
 }
 
-function playAudibleUnlockSound(context: AudioContext) {
-  const oscillator = context.createOscillator();
-  const gain = context.createGain();
-  const when = context.currentTime;
+function playUnlockWav(): Promise<void> {
+  if (!unlockAudio) {
+    unlockAudio = new Audio(
+      `${import.meta.env.BASE_URL}sounds/audio-test.wav`,
+    );
+    unlockAudio.preload = "auto";
+    unlockAudio.volume = 1;
+    unlockAudio.setAttribute("playsinline", "");
+  }
 
-  oscillator.type = "sine";
-  oscillator.frequency.setValueAtTime(880, when);
-  oscillator.frequency.exponentialRampToValueAtTime(
-    520,
-    when + 0.07,
-  );
+  unlockAudio.pause();
+  unlockAudio.currentTime = 0;
 
-  gain.gain.setValueAtTime(0.0001, when);
-  gain.gain.exponentialRampToValueAtTime(0.08, when + 0.008);
-  gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.08);
-
-  oscillator.connect(gain);
-  gain.connect(context.destination);
-  oscillator.start(when);
-  oscillator.stop(when + 0.09);
+  // play() wird direkt im Button-Event aufgerufen. Genau dieser
+  // normale WAV-Start hat auf iOS bereits zuverlässig funktioniert.
+  return unlockAudio.play();
 }
 
 export async function ensureAudioReady(): Promise<AudioContext> {
@@ -157,15 +154,16 @@ export async function ensureAudioReady(): Promise<AudioContext> {
 export async function activateAudioWithFeedback(): Promise<AudioContext> {
   const context = getAudioContext();
 
-  // Der kurze hörbare Ton wird noch innerhalb der direkten
-  // Nutzeraktion geplant. Das ist auf iOS zuverlässiger als ein
-  // vollständig stummer Unlock-Buffer.
-  playAudibleUnlockSound(context);
+  // Beide Starts passieren synchron innerhalb derselben Nutzeraktion:
+  // die nachweislich funktionierende WAV über HTMLAudioElement und
+  // parallel dazu der zentrale Web-Audio-Kontext.
+  const wavPromise = playUnlockWav();
+  const resumePromise =
+    context.state === "running"
+      ? Promise.resolve()
+      : context.resume();
 
-  if (context.state !== "running") {
-    const resumePromise = context.resume();
-    await resumePromise;
-  }
+  await Promise.all([wavPromise, resumePromise]);
 
   if (context.state !== "running") {
     throw new Error("Audio konnte noch nicht aktiviert werden.");
