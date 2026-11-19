@@ -3,11 +3,18 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { Link } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
 import {
   hasAppUnlock,
   redeemAppUnlock,
 } from "../services/appUnlocks";
+import {
+  ensureAudioReady,
+  preloadDrumSounds,
+} from "../miniApps/drumMachine/audioEngine";
 
 interface AppUnlockPanelProps {
   appId: string;
@@ -24,12 +31,17 @@ export default function AppUnlockPanel({
   appId,
   appPath,
 }: AppUnlockPanelProps) {
+  const navigate = useNavigate();
+
   const [unlockState, setUnlockState] =
     useState<UnlockState>("loading");
 
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] =
+    useState(false);
+
+  const [opening, setOpening] =
     useState(false);
 
   useEffect(() => {
@@ -52,6 +64,39 @@ export default function AppUnlockPanel({
       cancelled = true;
     };
   }, [appId]);
+
+  useEffect(() => {
+    if (appId !== "drum-machine") return;
+
+    // Die Samples werden bereits auf der Türchen-Seite geladen.
+    // Der AudioContext bleibt dabei bis zum Öffnen pausiert.
+    void preloadDrumSounds();
+  }, [appId]);
+
+  async function handleOpenDrumMachine() {
+    if (opening) return;
+
+    setOpening(true);
+    setMessage("");
+
+    try {
+      // Wichtig für iOS: resume() wird hier direkt aus dem Klick
+      // heraus gestartet, bevor auf irgendein Promise gewartet wird.
+      const audioReadyPromise = ensureAudioReady();
+
+      await Promise.all([
+        audioReadyPromise,
+        preloadDrumSounds(),
+      ]);
+
+      navigate(appPath);
+    } catch {
+      setMessage(
+        "Audio konnte noch nicht gestartet werden. Tippe bitte erneut auf Beat It öffnen.",
+      );
+      setOpening(false);
+    }
+  }
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
@@ -120,12 +165,36 @@ export default function AppUnlockPanel({
           FREIGESCHALTET
         </span>
 
-        <Link
-          className="app-unlock-open"
-          to={appPath}
-        >
-          Beat It öffnen
-        </Link>
+        {appId === "drum-machine" ? (
+          <button
+            className="app-unlock-open"
+            type="button"
+            onClick={() =>
+              void handleOpenDrumMachine()
+            }
+            disabled={opening}
+          >
+            {opening
+              ? "Audio wird vorbereitet …"
+              : "Beat It öffnen"}
+          </button>
+        ) : (
+          <Link
+            className="app-unlock-open"
+            to={appPath}
+          >
+            App öffnen
+          </Link>
+        )}
+
+        {message && (
+          <p
+            className="app-unlock-error"
+            role="alert"
+          >
+            {message}
+          </p>
+        )}
       </div>
     );
   }

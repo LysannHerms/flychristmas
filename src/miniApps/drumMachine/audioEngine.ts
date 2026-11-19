@@ -16,20 +16,68 @@ export type DrumSoundId =
   | "user3"
   | "user4";
 
+export type PadSampleSource =
+  | "custom"
+  | "default"
+  | "synth";
+
+export interface PadSampleInfo {
+  soundId: DrumSoundId;
+  source: PadSampleSource;
+  name: string;
+}
+
 interface BeatExportOptions {
   pattern: boolean[][];
   trackLengths: number[];
   soundIds: DrumSoundId[];
   bpm: number;
-  bars?: number;
+  durationSeconds: number;
 }
 
-let audioContext: AudioContext | null = null;
-let masterOutput: AudioNode | null = null;
+interface StoredSample {
+  soundId: DrumSoundId;
+  name: string;
+  mimeType: string;
+  data: ArrayBuffer;
+  updatedAt: number;
+}
 
 interface WebKitWindow extends Window {
   webkitAudioContext?: typeof AudioContext;
 }
+
+const SAMPLE_DATABASE = "flychristmas-beat-it";
+const SAMPLE_STORE = "pad-samples";
+const SAMPLE_DATABASE_VERSION = 1;
+const MAX_SAMPLE_BYTES = 15 * 1024 * 1024;
+
+/*
+ * Fest mit der App ausgelieferte WAVs liegen in public/sounds.
+ * Weitere feste Samples können später einfach hier ergänzt werden,
+ * zum Beispiel:
+ * snare: `${import.meta.env.BASE_URL}sounds/snare.wav`,
+ */
+const DEFAULT_SAMPLE_URLS: Partial<
+  Record<DrumSoundId, string>
+> = {
+  kick: `${import.meta.env.BASE_URL}sounds/audio-test.wav`,
+};
+
+const DEFAULT_SAMPLE_NAMES: Partial<
+  Record<DrumSoundId, string>
+> = {
+  kick: "audio-test.wav",
+};
+
+let audioContext: AudioContext | null = null;
+let masterOutput: AudioNode | null = null;
+let defaultSamplesPromise: Promise<void> | null = null;
+let storedSamplesPromise: Promise<void> | null = null;
+
+const defaultSampleBuffers = new Map<DrumSoundId, AudioBuffer>();
+const customSampleBuffers = new Map<DrumSoundId, AudioBuffer>();
+const customSampleNames = new Map<DrumSoundId, string>();
 
 function getAudioContext(): AudioContext {
   if (!audioContext || audioContext.state === "closed") {
@@ -43,7 +91,15 @@ function getAudioContext(): AudioContext {
       );
     }
 
-    audioContext = new AudioContextConstructor();
+    try {
+      audioContext = new AudioContextConstructor({
+        latencyHint: "interactive",
+      });
+    } catch {
+      // Fallback für ältere Safari-Versionen, die die Optionen
+      // des Konstruktors noch nicht akzeptieren.
+      audioContext = new AudioContextConstructor();
+    }
     masterOutput = null;
   }
 
@@ -51,16 +107,33 @@ function getAudioContext(): AudioContext {
 }
 
 function playSilentUnlockSound(context: AudioContext) {
-  const buffer = context.createBuffer(
-    1,
-    1,
-    context.sampleRate,
-  );
-
+  const buffer = context.createBuffer(1, 1, context.sampleRate);
   const source = context.createBufferSource();
   source.buffer = buffer;
   source.connect(context.destination);
   source.start(0);
+}
+
+export async function ensureAudioReady(): Promise<AudioContext> {
+  const context = getAudioContext();
+
+  if (context.state !== "running") {
+    // Vor resume() darf kein await stehen: Der Aufruf muss noch
+    // direkt zur Nutzeraktion auf „Beat It öffnen“ gehören.
+    const resumePromise = context.resume();
+    playSilentUnlockSound(context);
+    await resumePromise;
+  }
+
+  if (context.state !== "running") {
+    throw new Error("Audio konnte noch nicht aktiviert werden.");
+  }
+
+  return context;
+}
+
+export function getAudioState(): AudioContextState {
+  return getAudioContext().state;
 }
 
 function createMasterOutput(context: BaseAudioContext) {
@@ -72,12 +145,10 @@ function createMasterOutput(context: BaseAudioContext) {
   compressor.ratio.value = 6;
   compressor.attack.value = 0.003;
   compressor.release.value = 0.2;
-
   gain.gain.value = 0.72;
 
   compressor.connect(gain);
   gain.connect(context.destination);
-
   return compressor;
 }
 
@@ -85,48 +156,303 @@ function getMasterOutput(context: AudioContext) {
   if (!masterOutput) {
     masterOutput = createMasterOutput(context);
   }
-
   return masterOutput;
 }
 
-export function prepareAudio(): AudioContext {
-  const context = getAudioContext();
+function decodeSample(context: AudioContext, data: ArrayBuffer) {
+  // Safari darf den übergebenen ArrayBuffer beim Decodieren
+  // verbrauchen. Die Kopie bleibt deshalb absichtlich hier.
+  return context.decodeAudioData(data.slice(0));
+}
 
-  playSilentUnlockSound(context);
+function openSampleDatabase(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (!("indexedDB" in window)) {
+      reject(
+        new Error(
+          "Dieser Browser kann eigene Samples nicht dauerhaft speichern.",
+        ),
+      );
+      return;
+    }
 
-  if (context.state !== "running") {
-    void context.resume().catch((error) => {
+    const request = indexedDB.open(
+      SAMPLE_DATABASE,
+      SAMPLE_DATABASE_VERSION,
+    );
+
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains(SAMPLE_STORE)) {
+        database.createObjectStore(SAMPLE_STORE, {
+          keyPath: "soundId",
+        });
+      }
+    };
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function readStoredSamples(): Promise<StoredSample[]> {
+  const database = await openSampleDatabase();
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      SAMPLE_STORE,
+      "readonly",
+    );
+    const request = transaction.objectStore(SAMPLE_STORE).getAll();
+
+    request.onsuccess = () => {
+      resolve(request.result as StoredSample[]);
+    };
+    request.onerror = () => reject(request.error);
+    transaction.oncomplete = () => database.close();
+    transaction.onabort = () => database.close();
+  });
+}
+
+async function writeStoredSample(
+  sample: StoredSample,
+): Promise<void> {
+  const database = await openSampleDatabase();
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      SAMPLE_STORE,
+      "readwrite",
+    );
+    transaction.objectStore(SAMPLE_STORE).put(sample);
+
+    transaction.oncomplete = () => {
+      database.close();
+      resolve();
+    };
+    transaction.onerror = () => {
+      database.close();
+      reject(transaction.error);
+    };
+    transaction.onabort = () => {
+      database.close();
+      reject(transaction.error);
+    };
+  });
+}
+
+async function deleteStoredSample(
+  soundId: DrumSoundId,
+): Promise<void> {
+  const database = await openSampleDatabase();
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(
+      SAMPLE_STORE,
+      "readwrite",
+    );
+    transaction.objectStore(SAMPLE_STORE).delete(soundId);
+
+    transaction.oncomplete = () => {
+      database.close();
+      resolve();
+    };
+    transaction.onerror = () => {
+      database.close();
+      reject(transaction.error);
+    };
+    transaction.onabort = () => {
+      database.close();
+      reject(transaction.error);
+    };
+  });
+}
+
+async function loadDefaultSamples(
+  context: AudioContext,
+): Promise<void> {
+  if (defaultSamplesPromise) return defaultSamplesPromise;
+
+  defaultSamplesPromise = Promise.all(
+    Object.entries(DEFAULT_SAMPLE_URLS).map(
+      async ([rawSoundId, url]) => {
+        const soundId = rawSoundId as DrumSoundId;
+
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const data = await response.arrayBuffer();
+          const buffer = await decodeSample(context, data);
+          defaultSampleBuffers.set(soundId, buffer);
+        } catch (error) {
+          console.error(
+            `Standardsample ${soundId} konnte nicht geladen werden:`,
+            error,
+          );
+        }
+      },
+    ),
+  ).then(() => undefined);
+
+  return defaultSamplesPromise;
+}
+
+async function loadStoredSamples(
+  context: AudioContext,
+): Promise<void> {
+  if (storedSamplesPromise) return storedSamplesPromise;
+
+  storedSamplesPromise = (async () => {
+    let samples: StoredSample[] = [];
+
+    try {
+      samples = await readStoredSamples();
+    } catch (error) {
       console.error(
-        "AudioContext konnte nicht gestartet werden:",
+        "Gespeicherte Samples konnten nicht gelesen werden:",
         error,
       );
-    });
+      return;
+    }
+
+    await Promise.all(
+      samples.map(async (sample) => {
+        try {
+          const buffer = await decodeSample(context, sample.data);
+          customSampleBuffers.set(sample.soundId, buffer);
+          customSampleNames.set(sample.soundId, sample.name);
+        } catch (error) {
+          console.error(
+            `Eigenes Sample ${sample.name} konnte nicht decodiert werden:`,
+            error,
+          );
+        }
+      }),
+    );
+  })();
+
+  return storedSamplesPromise;
+}
+
+export async function preloadDrumSounds(): Promise<void> {
+  const context = getAudioContext();
+  await Promise.all([
+    loadDefaultSamples(context),
+    loadStoredSamples(context),
+  ]);
+}
+
+export function getPadSampleInfo(
+  soundId: DrumSoundId,
+): PadSampleInfo {
+  const customName = customSampleNames.get(soundId);
+
+  if (customName) {
+    return { soundId, source: "custom", name: customName };
   }
 
-  return context;
+  const defaultName = DEFAULT_SAMPLE_NAMES[soundId];
+  if (defaultName) {
+    return { soundId, source: "default", name: defaultName };
+  }
+
+  return {
+    soundId,
+    source: "synth",
+    name: "Synth-Standard",
+  };
+}
+
+export async function setCustomPadSample(
+  soundId: DrumSoundId,
+  file: File,
+): Promise<PadSampleInfo> {
+  if (file.size > MAX_SAMPLE_BYTES) {
+    throw new Error("Die Audiodatei darf höchstens 15 MB groß sein.");
+  }
+
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  const supportedExtension = [
+    "wav",
+    "mp3",
+    "ogg",
+    "m4a",
+    "aac",
+    "aif",
+    "aiff",
+  ].includes(extension ?? "");
+
+  if (!file.type.startsWith("audio/") && !supportedExtension) {
+    throw new Error(
+      "Bitte wähle eine WAV-, MP3-, OGG-, M4A- oder AIFF-Datei.",
+    );
+  }
+
+  const context = getAudioContext();
+  const data = await file.arrayBuffer();
+  let buffer: AudioBuffer;
+
+  try {
+    buffer = await decodeSample(context, data);
+  } catch {
+    throw new Error("Die Audiodatei konnte nicht gelesen werden.");
+  }
+
+  const name = file.name.slice(0, 80);
+
+  await writeStoredSample({
+    soundId,
+    name,
+    mimeType: file.type || "application/octet-stream",
+    data,
+    updatedAt: Date.now(),
+  });
+
+  customSampleBuffers.set(soundId, buffer);
+  customSampleNames.set(soundId, name);
+  return getPadSampleInfo(soundId);
+}
+
+export async function removeCustomPadSample(
+  soundId: DrumSoundId,
+): Promise<PadSampleInfo> {
+  await deleteStoredSample(soundId);
+  customSampleBuffers.delete(soundId);
+  customSampleNames.delete(soundId);
+  return getPadSampleInfo(soundId);
 }
 
 function createNoiseBuffer(
   context: BaseAudioContext,
   duration: number,
 ) {
-  const frameCount = Math.ceil(
-    context.sampleRate * duration,
-  );
-
+  const frameCount = Math.ceil(context.sampleRate * duration);
   const buffer = context.createBuffer(
     1,
     frameCount,
     context.sampleRate,
   );
-
   const channel = buffer.getChannelData(0);
 
   for (let index = 0; index < frameCount; index += 1) {
     channel[index] = Math.random() * 2 - 1;
   }
-
   return buffer;
+}
+
+function playSampleBuffer(
+  context: BaseAudioContext,
+  output: AudioNode,
+  buffer: AudioBuffer,
+  when: number,
+) {
+  const source = context.createBufferSource();
+  source.buffer = buffer;
+  source.connect(output);
+  source.start(when);
 }
 
 function playTone(
@@ -143,19 +469,12 @@ function playTone(
   const gain = context.createGain();
 
   oscillator.type = type;
-
-  oscillator.frequency.setValueAtTime(
-    startFrequency,
-    when,
-  );
-
+  oscillator.frequency.setValueAtTime(startFrequency, when);
   oscillator.frequency.exponentialRampToValueAtTime(
     Math.max(1, endFrequency),
     when + duration,
   );
-
   gain.gain.setValueAtTime(volume, when);
-
   gain.gain.exponentialRampToValueAtTime(
     0.001,
     when + duration,
@@ -163,7 +482,6 @@ function playTone(
 
   oscillator.connect(gain);
   gain.connect(output);
-
   oscillator.start(when);
   oscillator.stop(when + duration + 0.02);
 }
@@ -183,13 +501,10 @@ function playNoise(
   const gain = context.createGain();
 
   source.buffer = createNoiseBuffer(context, duration);
-
   filter.type = filterType;
   filter.frequency.setValueAtTime(frequency, when);
   filter.Q.setValueAtTime(resonance, when);
-
   gain.gain.setValueAtTime(volume, when);
-
   gain.gain.exponentialRampToValueAtTime(
     0.001,
     when + duration,
@@ -198,7 +513,6 @@ function playNoise(
   source.connect(filter);
   filter.connect(gain);
   gain.connect(output);
-
   source.start(when);
   source.stop(when + duration + 0.02);
 }
@@ -228,30 +542,21 @@ function scheduleDrumSound(
   soundId: DrumSoundId,
   when: number,
 ) {
+  const sampleBuffer =
+    customSampleBuffers.get(soundId) ??
+    defaultSampleBuffers.get(soundId);
+
+  if (sampleBuffer) {
+    playSampleBuffer(context, output, sampleBuffer, when);
+    return;
+  }
+
   switch (soundId) {
     case "kick":
-      playTone(
-        context,
-        output,
-        when,
-        155,
-        44,
-        0.42,
-        0.95,
-      );
+      playTone(context, output, when, 155, 44, 0.42, 0.95);
       break;
-
     case "snare":
-      playNoise(
-        context,
-        output,
-        when,
-        0.2,
-        0.5,
-        "highpass",
-        1150,
-      );
-
+      playNoise(context, output, when, 0.2, 0.5, "highpass", 1150);
       playTone(
         context,
         output,
@@ -263,7 +568,6 @@ function scheduleDrumSound(
         "triangle",
       );
       break;
-
     case "closedHat":
       playNoise(
         context,
@@ -275,23 +579,12 @@ function scheduleDrumSound(
         6900,
       );
       break;
-
     case "openHat":
-      playNoise(
-        context,
-        output,
-        when,
-        0.38,
-        0.2,
-        "highpass",
-        6500,
-      );
+      playNoise(context, output, when, 0.38, 0.2, "highpass", 6500);
       break;
-
     case "clap":
       playClap(context, output, when);
       break;
-
     case "rim":
       playTone(
         context,
@@ -304,56 +597,18 @@ function scheduleDrumSound(
         "square",
       );
       break;
-
     case "tom1":
-      playTone(
-        context,
-        output,
-        when,
-        210,
-        108,
-        0.28,
-        0.55,
-      );
+      playTone(context, output, when, 210, 108, 0.28, 0.55);
       break;
-
     case "tom2":
-      playTone(
-        context,
-        output,
-        when,
-        145,
-        72,
-        0.34,
-        0.58,
-      );
+      playTone(context, output, when, 145, 72, 0.34, 0.58);
       break;
-
     case "shaker":
-      playNoise(
-        context,
-        output,
-        when,
-        0.11,
-        0.22,
-        "bandpass",
-        5200,
-        1.8,
-      );
+      playNoise(context, output, when, 0.11, 0.22, "bandpass", 5200, 1.8);
       break;
-
     case "crash":
-      playNoise(
-        context,
-        output,
-        when,
-        0.85,
-        0.23,
-        "highpass",
-        4200,
-      );
+      playNoise(context, output, when, 0.85, 0.23, "highpass", 4200);
       break;
-
     case "perc1":
       playTone(
         context,
@@ -366,19 +621,9 @@ function scheduleDrumSound(
         "triangle",
       );
       break;
-
     case "perc2":
-      playTone(
-        context,
-        output,
-        when,
-        820,
-        390,
-        0.12,
-        0.3,
-      );
+      playTone(context, output, when, 820, 390, 0.12, 0.3);
       break;
-
     case "user1":
       playTone(
         context,
@@ -391,7 +636,6 @@ function scheduleDrumSound(
         "sawtooth",
       );
       break;
-
     case "user2":
       playTone(
         context,
@@ -404,30 +648,11 @@ function scheduleDrumSound(
         "triangle",
       );
       break;
-
     case "user3":
-      playNoise(
-        context,
-        output,
-        when,
-        0.22,
-        0.28,
-        "bandpass",
-        2400,
-        4,
-      );
+      playNoise(context, output, when, 0.22, 0.28, "bandpass", 2400, 4);
       break;
-
     case "user4":
-      playTone(
-        context,
-        output,
-        when,
-        1180,
-        160,
-        0.45,
-        0.32,
-      );
+      playTone(context, output, when, 1180, 160, 0.45, 0.32);
       break;
   }
 }
@@ -436,119 +661,54 @@ export function triggerDrumSound(
   soundId: DrumSoundId,
   scheduledTime?: number,
 ): void {
-  const context = prepareAudio();
+  const context = getAudioContext();
   const output = getMasterOutput(context);
-
   const when = Math.max(
     context.currentTime,
     scheduledTime ?? context.currentTime,
   );
-
-  scheduleDrumSound(
-    context,
-    output,
-    soundId,
-    when,
-  );
+  scheduleDrumSound(context, output, soundId, when);
 }
 
-function writeAscii(
-  view: DataView,
-  offset: number,
-  value: string,
-) {
-  for (
-    let index = 0;
-    index < value.length;
-    index += 1
-  ) {
-    view.setUint8(
-      offset + index,
-      value.charCodeAt(index),
-    );
+function writeAscii(view: DataView, offset: number, value: string) {
+  for (let index = 0; index < value.length; index += 1) {
+    view.setUint8(offset + index, value.charCodeAt(index));
   }
 }
 
-function audioBufferToWav(
-  buffer: AudioBuffer,
-) {
-  const channelCount =
-    buffer.numberOfChannels;
-
+function audioBufferToWav(buffer: AudioBuffer) {
+  const channelCount = buffer.numberOfChannels;
   const bytesPerSample = 2;
-
   const dataLength =
-    buffer.length *
-    channelCount *
-    bytesPerSample;
-
-  const arrayBuffer =
-    new ArrayBuffer(44 + dataLength);
-
+    buffer.length * channelCount * bytesPerSample;
+  const arrayBuffer = new ArrayBuffer(44 + dataLength);
   const view = new DataView(arrayBuffer);
 
   writeAscii(view, 0, "RIFF");
-  view.setUint32(
-    4,
-    36 + dataLength,
-    true,
-  );
-
+  view.setUint32(4, 36 + dataLength, true);
   writeAscii(view, 8, "WAVE");
   writeAscii(view, 12, "fmt ");
-
   view.setUint32(16, 16, true);
   view.setUint16(20, 1, true);
-
-  view.setUint16(
-    22,
-    channelCount,
-    true,
-  );
-
-  view.setUint32(
-    24,
-    buffer.sampleRate,
-    true,
-  );
-
+  view.setUint16(22, channelCount, true);
+  view.setUint32(24, buffer.sampleRate, true);
   view.setUint32(
     28,
-    buffer.sampleRate *
-      channelCount *
-      bytesPerSample,
+    buffer.sampleRate * channelCount * bytesPerSample,
     true,
   );
-
-  view.setUint16(
-    32,
-    channelCount * bytesPerSample,
-    true,
-  );
-
+  view.setUint16(32, channelCount * bytesPerSample, true);
   view.setUint16(34, 16, true);
-
   writeAscii(view, 36, "data");
-
-  view.setUint32(
-    40,
-    dataLength,
-    true,
-  );
+  view.setUint32(40, dataLength, true);
 
   const channels = Array.from(
     { length: channelCount },
-    (_, channelIndex) =>
-      buffer.getChannelData(channelIndex),
+    (_, channelIndex) => buffer.getChannelData(channelIndex),
   );
-
   let offset = 44;
 
-  for (
-    let frame = 0;
-    frame < buffer.length;
-    frame += 1
-  ) {
+  for (let frame = 0; frame < buffer.length; frame += 1) {
     for (
       let channelIndex = 0;
       channelIndex < channelCount;
@@ -556,28 +716,18 @@ function audioBufferToWav(
     ) {
       const sample = Math.max(
         -1,
-        Math.min(
-          1,
-          channels[channelIndex][frame],
-        ),
+        Math.min(1, channels[channelIndex][frame]),
       );
-
       view.setInt16(
         offset,
-        sample < 0
-          ? sample * 0x8000
-          : sample * 0x7fff,
+        sample < 0 ? sample * 0x8000 : sample * 0x7fff,
         true,
       );
-
       offset += bytesPerSample;
     }
   }
 
-  return new Blob(
-    [arrayBuffer],
-    { type: "audio/wav" },
-  );
+  return new Blob([arrayBuffer], { type: "audio/wav" });
 }
 
 export async function renderBeatToWav({
@@ -585,71 +735,47 @@ export async function renderBeatToWav({
   trackLengths,
   soundIds,
   bpm,
-  bars = 4,
+  durationSeconds,
 }: BeatExportOptions) {
-  const sampleRate = 44100;
-  const stepDuration = 60 / bpm / 4;
-  const totalSteps = 16 * bars;
-  const tailDuration = 1;
-
-  const totalDuration =
-    totalSteps *
-      stepDuration +
-    tailDuration;
-
-  const frameCount = Math.ceil(
-    totalDuration * sampleRate,
-  );
-
-  const context =
-    new OfflineAudioContext(
-      2,
-      frameCount,
-      sampleRate,
-    );
-
-  const output =
-    createMasterOutput(context);
-
-  for (
-    let tick = 0;
-    tick < totalSteps;
-    tick += 1
+  if (
+    !Number.isFinite(durationSeconds) ||
+    durationSeconds < 1 ||
+    durationSeconds > 300
   ) {
-    const when =
-      tick * stepDuration;
-
-    soundIds.forEach(
-      (soundId, trackIndex) => {
-        const track =
-          pattern[trackIndex];
-
-        const length =
-          trackLengths[trackIndex];
-
-        if (!track || !length) {
-          return;
-        }
-
-        const stepIndex =
-          tick % length;
-
-        if (track[stepIndex]) {
-          scheduleDrumSound(
-            context,
-            output,
-            soundId,
-            when,
-          );
-        }
-      },
+    throw new Error(
+      "Die Exportlänge muss zwischen einer Sekunde und fünf Minuten liegen.",
     );
   }
 
-  const renderedBuffer =
-    await context.startRendering();
+  await preloadDrumSounds();
 
-  return audioBufferToWav(
-    renderedBuffer,
+  const sampleRate = 44100;
+  const stepDuration = 60 / bpm / 4;
+  const totalSteps = Math.ceil(durationSeconds / stepDuration);
+  const frameCount = Math.ceil(durationSeconds * sampleRate);
+  const context = new OfflineAudioContext(
+    2,
+    frameCount,
+    sampleRate,
   );
+  const output = createMasterOutput(context);
+
+  for (let tick = 0; tick < totalSteps; tick += 1) {
+    const when = tick * stepDuration;
+    if (when >= durationSeconds) break;
+
+    soundIds.forEach((soundId, trackIndex) => {
+      const track = pattern[trackIndex];
+      const length = trackLengths[trackIndex];
+      if (!track || !length) return;
+
+      const stepIndex = tick % length;
+      if (track[stepIndex]) {
+        scheduleDrumSound(context, output, soundId, when);
+      }
+    });
+  }
+
+  const renderedBuffer = await context.startRendering();
+  return audioBufferToWav(renderedBuffer);
 }

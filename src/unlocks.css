@@ -65,7 +65,8 @@
   cursor: pointer;
 }
 
-.app-unlock-form button:disabled {
+.app-unlock-form button:disabled,
+.app-unlock-open:disabled {
   cursor: default;
   opacity: 0.55;
 }

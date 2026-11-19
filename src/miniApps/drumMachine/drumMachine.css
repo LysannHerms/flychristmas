@@ -73,7 +73,8 @@
 }
 
 .beat-machine button,
-.beat-machine select {
+.beat-machine select,
+.beat-machine input {
   font: inherit;
 }
 
@@ -180,12 +181,12 @@
   display: grid;
   place-items: center;
 
-  color: var(--olive-light);
-  background: var(--olive);
+  color: var(--navy);
+  background: var(--blue-light);
 
   border:
     1px solid
-    #c3b41d70;
+    #486ebc70;
 
   border-radius: 8px;
 
@@ -194,6 +195,7 @@
   letter-spacing: 0.08em;
 
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .beat-help-button {
@@ -206,8 +208,8 @@
   display: grid;
 
   grid-template-columns:
-    minmax(330px, 1.05fr)
-    minmax(390px, 0.95fr);
+    minmax(300px, 0.78fr)
+    minmax(390px, 1.22fr);
 
   gap: 9px;
 }
@@ -275,6 +277,21 @@
   pointer-events: none;
 }
 
+.beat-pad small {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  bottom: 6px;
+  overflow: hidden;
+  color: #17213fba;
+  font-size: 0.52rem;
+  font-weight: 700;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .beat-pad__activity {
   position: absolute;
 
@@ -332,6 +349,9 @@
 }
 
 .beat-sequencer {
+  --beat-meta-width: 159px;
+  --beat-steps-width: 640px;
+
   min-width: 0;
   min-height: 0;
 
@@ -355,6 +375,10 @@
     #6790c34f;
 
   border-radius: 12px;
+
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: var(--olive) #17213f;
 }
 
 .beat-sequencer__top {
@@ -363,10 +387,17 @@
   display: grid;
 
   grid-template-columns:
-    159px
-    minmax(0, 1fr);
+    var(--beat-meta-width)
+    minmax(var(--beat-steps-width), 1fr);
 
   gap: 5px;
+
+  min-width:
+    calc(
+      var(--beat-meta-width) +
+      var(--beat-steps-width) +
+      5px
+    );
 }
 
 .beat-bank-tabs {
@@ -461,11 +492,18 @@
     72px
     42px
     30px
-    minmax(0, 1fr);
+    minmax(var(--beat-steps-width), 1fr);
 
   align-items: stretch;
 
   gap: 5px;
+
+  min-width:
+    calc(
+      var(--beat-meta-width) +
+      var(--beat-steps-width) +
+      5px
+    );
 }
 
 .beat-track > strong {
@@ -580,7 +618,7 @@
 
 .beat-track__steps button {
   min-width: 0;
-  min-height: 0;
+  min-height: 34px;
 
   padding: 0;
 
@@ -629,12 +667,64 @@
   display: grid;
 
   grid-template-columns:
-    repeat(
-      7,
-      minmax(0, 1fr)
-    );
+    repeat(6, minmax(0, 1fr))
+    minmax(116px, 1.35fr)
+    minmax(72px, 1fr);
 
   gap: 6px;
+}
+
+.beat-export-length {
+  min-width: 0;
+  min-height: 46px;
+
+  padding: 3px 7px;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 3px;
+
+  color: #dce7f3;
+  background: #24365f;
+  border: 1px solid #6790c366;
+  border-radius: 8px;
+}
+
+.beat-export-length label {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 1px;
+  text-align: center;
+}
+
+.beat-export-length label span {
+  color: #94abd0;
+  font-size: 0.46rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.beat-export-length input {
+  width: 100%;
+  min-width: 0;
+  height: 25px;
+  padding: 1px 2px;
+
+  color: var(--navy);
+  background: #dce7f3;
+  border: 0;
+  border-radius: 4px;
+
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.beat-export-length b {
+  padding-top: 10px;
+  color: var(--olive-light);
 }
 
 .transport-button {
@@ -751,6 +841,124 @@
   box-shadow:
     0 20px 60px
     #050b21aa;
+}
+
+.beat-sample-dialog {
+  position: relative;
+
+  width: min(94vw, 760px);
+  max-height: 92vh;
+
+  padding: 24px 28px;
+  overflow-y: auto;
+
+  color: #dce7f3;
+  background: #17213f;
+  border: 1px solid #6790c370;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px #050b21aa;
+}
+
+.beat-sample-dialog h2 {
+  margin: 0 40px 7px 0;
+  color: var(--olive-light);
+}
+
+.beat-sample-dialog > p {
+  margin: 0 40px 16px 0;
+  color: #b9c9df;
+  line-height: 1.45;
+}
+
+.beat-sample-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.beat-sample-row {
+  min-width: 0;
+  min-height: 54px;
+
+  padding: 6px;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px 82px 58px;
+  align-items: stretch;
+  gap: 5px;
+
+  background: #24365f;
+  border: 1px solid #6790c34f;
+  border-radius: 8px;
+}
+
+.beat-sample-row > div {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+}
+
+.beat-sample-row strong,
+.beat-sample-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.beat-sample-row strong {
+  color: #dce7f3;
+  font-size: 0.72rem;
+}
+
+.beat-sample-row small {
+  color: #94abd0;
+  font-size: 0.58rem;
+}
+
+.beat-sample-row button,
+.beat-sample-file {
+  min-width: 0;
+  padding: 5px;
+
+  display: grid;
+  place-items: center;
+
+  color: #dce7f3;
+  background: #17213f;
+  border: 1px solid #6790c366;
+  border-radius: 6px;
+
+  font-size: 0.58rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.beat-sample-row button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.beat-sample-file {
+  color: var(--navy);
+  background: var(--olive-light);
+  border-color: #e6da52;
+}
+
+.beat-sample-file input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.beat-sample-message {
+  margin-top: 14px;
+  display: block;
+  color: var(--olive-light);
+  font-size: 0.76rem;
+  line-height: 1.4;
 }
 
 .beat-help-dialog h2 {
@@ -875,6 +1083,11 @@
 @media (
   orientation: landscape
 ) and (max-width: 800px) {
+  .beat-sequencer {
+    --beat-meta-width: 136px;
+    --beat-steps-width: 576px;
+  }
+
   .beat-machine__workspace {
     grid-template-columns:
       minmax(300px, 1fr)
@@ -890,15 +1103,15 @@
       62px
       38px
       27px
-      minmax(0, 1fr);
+      minmax(var(--beat-steps-width), 1fr);
 
     gap: 3px;
   }
 
   .beat-sequencer__top {
     grid-template-columns:
-      136px
-      minmax(0, 1fr);
+      var(--beat-meta-width)
+      minmax(var(--beat-steps-width), 1fr);
 
     gap: 3px;
   }
@@ -914,5 +1127,9 @@
 
   .transport-button {
     gap: 4px;
+  }
+
+  .beat-sample-list {
+    grid-template-columns: 1fr;
   }
 }

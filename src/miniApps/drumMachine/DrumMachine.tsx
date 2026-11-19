@@ -1,15 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  prepareAudio,
+  ensureAudioReady,
+  getAudioState,
+  getPadSampleInfo,
+  preloadDrumSounds,
+  removeCustomPadSample,
   renderBeatToWav,
+  setCustomPadSample,
   triggerDrumSound,
   type DrumSoundId,
+  type PadSampleInfo,
 } from "./audioEngine";
 import "./drumMachine.css";
 
 interface PadDefinition {
   id: DrumSoundId;
   label: string;
+}
+
+interface ScheduledStep {
+  tick: number;
+  time: number;
 }
 
 type Pattern = boolean[][];
@@ -25,23 +36,21 @@ const STEP_COUNT = 16;
 const BANK_SIZE = 4;
 const BANK_NAMES = ["CORE", "HITS", "PERC", "USER"];
 const TRACK_LENGTH_OPTIONS = [4, 6, 7, 8, 12, 16];
+const MAX_EXPORT_SECONDS = 5 * 60;
 
 const pads: PadDefinition[] = [
   { id: "kick", label: "KICK" },
   { id: "snare", label: "SNARE" },
   { id: "closedHat", label: "CLOSED HAT" },
   { id: "openHat", label: "OPEN HAT" },
-
   { id: "clap", label: "CLAP" },
   { id: "rim", label: "RIM" },
   { id: "tom1", label: "TOM 1" },
   { id: "tom2", label: "TOM 2" },
-
   { id: "shaker", label: "SHAKER" },
   { id: "crash", label: "CRASH" },
   { id: "perc1", label: "PERC 1" },
   { id: "perc2", label: "PERC 2" },
-
   { id: "user1", label: "USER 1" },
   { id: "user2", label: "USER 2" },
   { id: "user3", label: "USER 3" },
@@ -92,7 +101,6 @@ function readSavedState(): DrumMachineState {
 
   try {
     const rawValue = localStorage.getItem(STORAGE_KEY);
-
     if (!rawValue) return fallback;
 
     const saved = JSON.parse(rawValue) as {
@@ -105,11 +113,9 @@ function readSavedState(): DrumMachineState {
       pattern: isValidPattern(saved.pattern)
         ? saved.pattern
         : fallback.pattern,
-
       trackLengths: isValidTrackLengths(saved.trackLengths)
         ? saved.trackLengths
         : fallback.trackLengths,
-
       bpm:
         typeof saved.bpm === "number"
           ? Math.min(180, Math.max(60, saved.bpm))
@@ -120,51 +126,66 @@ function readSavedState(): DrumMachineState {
   }
 }
 
+function readSampleInfos(): Record<DrumSoundId, PadSampleInfo> {
+  return Object.fromEntries(
+    pads.map((pad) => [pad.id, getPadSampleInfo(pad.id)]),
+  ) as Record<DrumSoundId, PadSampleInfo>;
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error
+    ? error.message
+    : "Unbekannter Fehler";
+}
+
 export default function DrumMachine() {
-  const initialState = useRef(readSavedState()).current;
+  const [initialState] = useState(readSavedState);
 
   const [pattern, setPattern] = useState<Pattern>(
     initialState.pattern,
   );
-
   const [trackLengths, setTrackLengths] = useState<number[]>(
     initialState.trackLengths,
   );
-
   const [bpm, setBpm] = useState(initialState.bpm);
   const [selectedBank, setSelectedBank] = useState(0);
-
   const [selectedTrack, setSelectedTrack] = useState<
     number | null
   >(null);
-
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-
   const [activePad, setActivePad] =
     useState<DrumSoundId | null>(null);
-
   const [playheads, setPlayheads] = useState<number[]>(
     pads.map(() => -1),
   );
-
   const [helpOpen, setHelpOpen] = useState(false);
+  const [sampleManagerOpen, setSampleManagerOpen] =
+    useState(false);
+  const [sampleInfos, setSampleInfos] = useState(
+    readSampleInfos,
+  );
+  const [sampleMessage, setSampleMessage] = useState("");
+  const [audioStatus, setAudioStatus] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
   const [exportMessage, setExportMessage] = useState("");
-  const [htmlAudioStatus, setHtmlAudioStatus] = useState("");
+  const [exportMinutes, setExportMinutes] = useState(0);
+  const [exportSeconds, setExportSeconds] = useState(30);
+  const [undoDepth, setUndoDepth] = useState(0);
 
   const patternRef = useRef<Pattern>(pattern);
   const trackLengthsRef = useRef<number[]>(trackLengths);
   const bpmRef = useRef<number>(bpm);
   const playingRef = useRef(false);
+  const recordingRef = useRef(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const tickRef = useRef(0);
   const audibleTickRef = useRef(0);
   const nextStepTimeRef = useRef(0);
+  const scheduledStepsRef = useRef<ScheduledStep[]>([]);
   const schedulerRef = useRef<number | null>(null);
   const playheadTimeoutsRef = useRef<number[]>([]);
   const undoStackRef = useRef<Pattern[]>([]);
-  const testAudioRef = useRef<HTMLAudioElement | null>(null);
-  const kickAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     patternRef.current = pattern;
@@ -178,24 +199,82 @@ export default function DrumMachine() {
     bpmRef.current = bpm;
   }, [bpm]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    void preloadDrumSounds().then(() => {
+      if (!cancelled) setSampleInfos(readSampleInfos());
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    function checkAudioAfterInterruption() {
+      try {
+        if (getAudioState() !== "running") {
+          setAudioStatus(
+            "AUDIO PAUSIERT – tippe auf AUDIO NEU STARTEN.",
+          );
+        }
+      } catch (error) {
+        setAudioStatus(getErrorMessage(error));
+      }
+    }
+
+    window.addEventListener(
+      "orientationchange",
+      checkAudioAfterInterruption,
+    );
+    document.addEventListener(
+      "visibilitychange",
+      checkAudioAfterInterruption,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "orientationchange",
+        checkAudioAfterInterruption,
+      );
+      document.removeEventListener(
+        "visibilitychange",
+        checkAudioAfterInterruption,
+      );
+    };
+  }, []);
+
   function rememberPattern(currentPattern: Pattern) {
     undoStackRef.current = [
       ...undoStackRef.current.slice(-19),
       clonePattern(currentPattern),
     ];
+    setUndoDepth(undoStackRef.current.length);
+  }
+
+  function updatePattern(
+    update: (nextPattern: Pattern) => void,
+  ) {
+    setPattern((currentPattern) => {
+      rememberPattern(currentPattern);
+      const nextPattern = clonePattern(currentPattern);
+      update(nextPattern);
+      patternRef.current = nextPattern;
+      return nextPattern;
+    });
   }
 
   function clearPlayheadTimeouts() {
     playheadTimeoutsRef.current.forEach((timeoutId) => {
       window.clearTimeout(timeoutId);
     });
-
     playheadTimeoutsRef.current = [];
   }
 
   function stopPlayback() {
     playingRef.current = false;
-
+    recordingRef.current = false;
     setIsPlaying(false);
     setIsRecording(false);
 
@@ -205,17 +284,10 @@ export default function DrumMachine() {
     }
 
     clearPlayheadTimeouts();
-
     setPlayheads(pads.map(() => -1));
-
     tickRef.current = 0;
     audibleTickRef.current = 0;
-
-    kickAudioRef.current?.pause();
-
-    if (kickAudioRef.current) {
-      kickAudioRef.current.currentTime = 0;
-    }
+    scheduledStepsRef.current = [];
   }
 
   useEffect(() => {
@@ -223,64 +295,45 @@ export default function DrumMachine() {
       if (schedulerRef.current !== null) {
         window.clearInterval(schedulerRef.current);
       }
-
       clearPlayheadTimeouts();
-
-      testAudioRef.current?.pause();
-      testAudioRef.current = null;
-
-      kickAudioRef.current?.pause();
-
-      if (kickAudioRef.current) {
-        kickAudioRef.current.src = "";
-      }
-
-      kickAudioRef.current = null;
     };
   }, []);
 
   function schedule() {
     if (!playingRef.current) return;
 
-    const context = prepareAudio();
+    const context = audioContextRef.current;
+    if (!context || context.state !== "running") return;
 
     while (
-      nextStepTimeRef.current <
-      context.currentTime + 0.1
+      nextStepTimeRef.current < context.currentTime + 0.1
     ) {
       const scheduledTick = tickRef.current;
       const scheduledTime = nextStepTimeRef.current;
-
       const delay = Math.max(
         0,
         (scheduledTime - context.currentTime) * 1000,
+      );
+
+      scheduledStepsRef.current.push({
+        tick: scheduledTick,
+        time: scheduledTime,
+      });
+      scheduledStepsRef.current = scheduledStepsRef.current.filter(
+        (step) => step.time >= context.currentTime - 2,
       );
 
       pads.forEach((pad, trackIndex) => {
         const length = trackLengthsRef.current[trackIndex];
         const stepIndex = scheduledTick % length;
 
-        if (
-          patternRef.current[trackIndex][stepIndex] &&
-          pad.id !== "kick"
-        ) {
+        if (patternRef.current[trackIndex][stepIndex]) {
           triggerDrumSound(pad.id, scheduledTime);
         }
       });
 
       const timeoutId = window.setTimeout(() => {
         audibleTickRef.current = scheduledTick;
-
-        const kickLength =
-          trackLengthsRef.current[0];
-
-        const kickStep =
-          scheduledTick % kickLength;
-
-        if (patternRef.current[0][kickStep]) {
-          playKickSample();
-        }
-
         setPlayheads(
           trackLengthsRef.current.map(
             (length) => scheduledTick % length,
@@ -289,88 +342,122 @@ export default function DrumMachine() {
       }, delay);
 
       playheadTimeoutsRef.current.push(timeoutId);
-
       tickRef.current += 1;
-
-      nextStepTimeRef.current +=
-        60 / bpmRef.current / 4;
+      nextStepTimeRef.current += 60 / bpmRef.current / 4;
     }
   }
 
-  function startPlayback() {
-    if (playingRef.current) return;
+  async function restartAudio() {
+    setAudioStatus("AUDIO WIRD GESTARTET …");
 
-    const context = prepareAudio();
-
-    playingRef.current = true;
-    setIsPlaying(true);
-
-    tickRef.current = 0;
-    audibleTickRef.current = 0;
-
-    nextStepTimeRef.current =
-      context.currentTime + 0.05;
-
-    schedule();
-
-    schedulerRef.current = window.setInterval(() => {
-      schedule();
-    }, 25);
+    try {
+      // ensureAudioReady() steht absichtlich vor jedem await.
+      const contextPromise = ensureAudioReady();
+      const context = await contextPromise;
+      await preloadDrumSounds();
+      audioContextRef.current = context;
+      setSampleInfos(readSampleInfos());
+      setAudioStatus("AUDIO BEREIT");
+      return context;
+    } catch (error) {
+      setAudioStatus(`AUDIO-FEHLER: ${getErrorMessage(error)}`);
+      throw error;
+    }
   }
 
-  function toggleRecording() {
-    const nextRecordingState = !isRecording;
+  async function startPlayback() {
+    if (playingRef.current) return;
 
+    try {
+      const context = await restartAudio();
+      playingRef.current = true;
+      setIsPlaying(true);
+      tickRef.current = 0;
+      audibleTickRef.current = 0;
+      scheduledStepsRef.current = [];
+      nextStepTimeRef.current = context.currentTime + 0.05;
+      schedule();
+      schedulerRef.current = window.setInterval(schedule, 25);
+    } catch {
+      // Die verständliche Meldung setzt restartAudio().
+    }
+  }
+
+  async function toggleRecording() {
+    const nextRecordingState = !recordingRef.current;
+
+    if (nextRecordingState) {
+      try {
+        await restartAudio();
+      } catch {
+        return;
+      }
+    }
+
+    recordingRef.current = nextRecordingState;
     setIsRecording(nextRecordingState);
 
     if (nextRecordingState && !playingRef.current) {
-      startPlayback();
+      await startPlayback();
     }
   }
 
   function changeBpm(amount: number) {
     setBpm((currentBpm) =>
-      Math.min(
-        180,
-        Math.max(60, currentBpm + amount),
-      ),
+      Math.min(180, Math.max(60, currentBpm + amount)),
     );
   }
 
-  function recordPadHit(trackIndex: number) {
-    const trackLength =
-      trackLengthsRef.current[trackIndex];
+  function findNearestRecordedTick(hitTime: number) {
+    const candidates = [...scheduledStepsRef.current];
 
-    const stepIndex =
-      audibleTickRef.current % trackLength;
+    if (playingRef.current) {
+      candidates.push({
+        tick: tickRef.current,
+        time: nextStepTimeRef.current,
+      });
+    }
 
-    rememberPattern(patternRef.current);
+    if (candidates.length === 0) {
+      return audibleTickRef.current;
+    }
 
-    setPattern((currentPattern) => {
-      const nextPattern = clonePattern(currentPattern);
+    return candidates.reduce((nearest, candidate) =>
+      Math.abs(candidate.time - hitTime) <
+      Math.abs(nearest.time - hitTime)
+        ? candidate
+        : nearest,
+    ).tick;
+  }
 
+  function recordPadHit(trackIndex: number, hitTime: number) {
+    const trackLength = trackLengthsRef.current[trackIndex];
+    const recordedTick = findNearestRecordedTick(hitTime);
+    const stepIndex = recordedTick % trackLength;
+
+    updatePattern((nextPattern) => {
       nextPattern[trackIndex][stepIndex] = true;
-
-      return nextPattern;
     });
   }
 
-  function playPad(
+  async function playPad(
     pad: PadDefinition,
     trackIndex: number,
   ) {
-    if (pad.id === "kick") {
-      playKickSample();
-    } else {
-      triggerDrumSound(pad.id);
+    try {
+      const context = await restartAudio();
+      const hitTime = context.currentTime;
+      triggerDrumSound(pad.id, hitTime);
+
+      if (recordingRef.current) {
+        recordPadHit(trackIndex, hitTime);
+      }
+    } catch {
+      return;
     }
 
     setSelectedTrack(trackIndex);
-
-    setSelectedBank(
-      Math.floor(trackIndex / BANK_SIZE),
-    );
-
+    setSelectedBank(Math.floor(trackIndex / BANK_SIZE));
     setActivePad(pad.id);
 
     window.setTimeout(() => {
@@ -379,123 +466,95 @@ export default function DrumMachine() {
       );
     }, 120);
 
-    if (isRecording) {
-      recordPadHit(trackIndex);
-    }
-
-    if ("vibrate" in navigator) {
-      navigator.vibrate(12);
-    }
+    if ("vibrate" in navigator) navigator.vibrate(12);
   }
 
-  function toggleStep(
-    trackIndex: number,
-    stepIndex: number,
-  ) {
-    rememberPattern(patternRef.current);
-
-    setPattern((currentPattern) => {
-      const nextPattern = clonePattern(currentPattern);
-
+  function toggleStep(trackIndex: number, stepIndex: number) {
+    updatePattern((nextPattern) => {
       nextPattern[trackIndex][stepIndex] =
         !nextPattern[trackIndex][stepIndex];
-
-      return nextPattern;
     });
   }
 
-  function changeTrackLength(
-    trackIndex: number,
-    length: number,
-  ) {
-    setTrackLengths((currentLengths) =>
-      currentLengths.map((currentLength, index) =>
-        index === trackIndex
-          ? length
-          : currentLength,
-      ),
-    );
+  function changeTrackLength(trackIndex: number, length: number) {
+    setTrackLengths((currentLengths) => {
+      const nextLengths = currentLengths.map(
+        (currentLength, index) =>
+          index === trackIndex ? length : currentLength,
+      );
+      trackLengthsRef.current = nextLengths;
+      return nextLengths;
+    });
   }
 
   function undo() {
-    const previousPattern =
-      undoStackRef.current.pop();
+    const previousPattern = undoStackRef.current.pop();
+    if (!previousPattern) return;
 
-    if (previousPattern) {
-      setPattern(previousPattern);
-    }
+    setUndoDepth(undoStackRef.current.length);
+    patternRef.current = previousPattern;
+    setPattern(previousPattern);
   }
 
   function clearPattern() {
-    const hasSounds = patternRef.current.some(
-      (track) => track.some(Boolean),
+    const hasSounds = patternRef.current.some((track) =>
+      track.some(Boolean),
     );
-
     if (!hasSounds) return;
 
-    rememberPattern(patternRef.current);
-    setPattern(createEmptyPattern());
+    updatePattern((nextPattern) => {
+      nextPattern.forEach((track) => track.fill(false));
+    });
   }
 
   function clearTrack(trackIndex: number) {
-    if (
-      !patternRef.current[trackIndex].some(Boolean)
-    ) {
-      return;
-    }
+    if (!patternRef.current[trackIndex].some(Boolean)) return;
 
-    rememberPattern(patternRef.current);
-
-    setPattern((currentPattern) =>
-      currentPattern.map((track, index) =>
-        index === trackIndex
-          ? Array.from(
-              { length: STEP_COUNT },
-              () => false,
-            )
-          : [...track],
-      ),
-    );
+    updatePattern((nextPattern) => {
+      nextPattern[trackIndex].fill(false);
+    });
   }
 
   function bankHasSounds(bankIndex: number) {
-    const firstTrack =
-      bankIndex * BANK_SIZE;
-
+    const firstTrack = bankIndex * BANK_SIZE;
     return pattern
-      .slice(
-        firstTrack,
-        firstTrack + BANK_SIZE,
-      )
+      .slice(firstTrack, firstTrack + BANK_SIZE)
       .some((track) => track.some(Boolean));
   }
 
   function savePattern() {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({
-        pattern,
-        trackLengths,
-        bpm,
-      }),
+      JSON.stringify({ pattern, trackLengths, bpm }),
     );
-
     setSaveMessage("GESPEICHERT");
+    window.setTimeout(() => setSaveMessage(""), 1600);
+  }
 
-    window.setTimeout(() => {
-      setSaveMessage("");
-    }, 1600);
+  function normalizedExportDuration() {
+    const safeMinutes = Math.max(
+      0,
+      Math.min(5, Math.trunc(exportMinutes || 0)),
+    );
+    const safeSeconds = Math.max(
+      0,
+      Math.min(59, Math.trunc(exportSeconds || 0)),
+    );
+    return Math.min(
+      MAX_EXPORT_SECONDS,
+      safeMinutes * 60 + safeSeconds,
+    );
   }
 
   async function exportWav() {
-    const hasSounds = pattern.some(
-      (track) => track.some(Boolean),
-    );
+    const hasSounds = pattern.some((track) => track.some(Boolean));
+    const durationSeconds = normalizedExportDuration();
 
-    if (
-      !hasSounds ||
-      exportMessage === "RENDER…"
-    ) {
+    if (!hasSounds || exportMessage === "RENDER…") return;
+
+    if (durationSeconds < 1) {
+      setExportMessage("ZEIT?");
+      window.setTimeout(() => setExportMessage(""), 1800);
       return;
     }
 
@@ -507,164 +566,95 @@ export default function DrumMachine() {
         trackLengths,
         soundIds: pads.map((pad) => pad.id),
         bpm,
-        bars: 4,
+        durationSeconds,
       });
-
-      const objectUrl =
-        URL.createObjectURL(wavBlob);
-
-      const downloadLink =
-        document.createElement("a");
+      const objectUrl = URL.createObjectURL(wavBlob);
+      const downloadLink = document.createElement("a");
 
       downloadLink.href = objectUrl;
       downloadLink.download =
-        `beat-it-${bpm}-bpm.wav`;
-
+        `beat-it-${bpm}-bpm-${durationSeconds}s.wav`;
       document.body.appendChild(downloadLink);
       downloadLink.click();
       downloadLink.remove();
-
-      window.setTimeout(() => {
-        URL.revokeObjectURL(objectUrl);
-      }, 2000);
-
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
       setExportMessage("FERTIG");
     } catch (error) {
-      console.error(
-        "WAV-Export fehlgeschlagen:",
-        error,
-      );
-
+      console.error("WAV-Export fehlgeschlagen:", error);
       setExportMessage("FEHLER");
     }
 
-    window.setTimeout(() => {
-      setExportMessage("");
-    }, 1800);
+    window.setTimeout(() => setExportMessage(""), 1800);
   }
 
-  async function testHtmlAudio() {
-    const testUrl =
-      `${import.meta.env.BASE_URL}sounds/audio-test.wav`;
-
-    if (testAudioRef.current) {
-      testAudioRef.current.pause();
-      testAudioRef.current.currentTime = 0;
-    }
-
-    const audio = new Audio(testUrl);
-
-    audio.preload = "auto";
-    audio.volume = 1;
-
-    testAudioRef.current = audio;
-    setHtmlAudioStatus("TEST LÄUFT …");
-
-    audio.addEventListener(
-      "ended",
-      () => {
-        setHtmlAudioStatus("DATEI WURDE ABGESPIELT");
-      },
-      { once: true },
-    );
-
-    audio.addEventListener(
-      "error",
-      () => {
-        const errorCode = audio.error?.code;
-
-        setHtmlAudioStatus(
-          errorCode
-            ? `AUDIO-FEHLER ${errorCode}`
-            : "AUDIO KANN NICHT GELADEN WERDEN",
-        );
-      },
-      { once: true },
-    );
+  async function handleSampleFile(
+    soundId: DrumSoundId,
+    file: File | undefined,
+  ) {
+    if (!file) return;
+    setSampleMessage(`${file.name} wird geladen …`);
 
     try {
-      await audio.play();
-
-      setHtmlAudioStatus(
-        "PLAY() ERFOLGREICH – HÖRST DU TON?",
-      );
+      await setCustomPadSample(soundId, file);
+      setSampleInfos(readSampleInfos());
+      triggerDrumSound(soundId);
+      setSampleMessage(`${file.name} ist dem Pad zugewiesen.`);
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Unbekannter Fehler";
-
-      setHtmlAudioStatus(
-        `PLAY-FEHLER: ${message}`,
-      );
+      setSampleMessage(getErrorMessage(error));
     }
   }
 
-  function playKickSample() {
-    const sampleUrl =
-      `${import.meta.env.BASE_URL}sounds/audio-test.wav`;
-
-    if (!kickAudioRef.current) {
-      const audio = new Audio(sampleUrl);
-      audio.preload = "auto";
-      audio.volume = 1;
-
-      kickAudioRef.current = audio;
+  async function resetSample(soundId: DrumSoundId) {
+    try {
+      const info = await removeCustomPadSample(soundId);
+      setSampleInfos((current) => ({
+        ...current,
+        [soundId]: info,
+      }));
+      setSampleMessage("Eigenes Sample entfernt.");
+    } catch (error) {
+      setSampleMessage(getErrorMessage(error));
     }
-
-    const audio = kickAudioRef.current;
-
-    audio.pause();
-    audio.currentTime = 0;
-
-    void audio.play().catch((error: unknown) => {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Unbekannter Fehler";
-
-      setHtmlAudioStatus(
-        `KICK-SAMPLE-FEHLER: ${message}`,
-      );
-    });
   }
 
-  const firstVisibleTrack =
-    selectedBank * BANK_SIZE;
+  async function previewSample(soundId: DrumSoundId) {
+    try {
+      await restartAudio();
+      triggerDrumSound(soundId);
+    } catch {
+      // restartAudio zeigt den Fehler bereits an.
+    }
+  }
 
+  const firstVisibleTrack = selectedBank * BANK_SIZE;
   const visiblePads = pads.slice(
     firstVisibleTrack,
     firstVisibleTrack + BANK_SIZE,
   );
-
-  const patternHasSounds = pattern.some(
-    (track) => track.some(Boolean),
+  const patternHasSounds = pattern.some((track) =>
+    track.some(Boolean),
   );
 
   return (
-  <section
-  className="beat-machine"
-  aria-label="Beat It Drum Machine"
-  onPointerDownCapture={() => {
-    try {
-      prepareAudio();
-    } catch (error) {
-      console.error(
-        "Audio konnte nicht aktiviert werden:",
-        error,
-      );
-    }
-  }}
->
+    <section
+      className="beat-machine"
+      aria-label="Beat It Drum Machine"
+      onPointerDownCapture={() => {
+        try {
+          if (getAudioState() !== "running") {
+            void restartAudio();
+          }
+        } catch (error) {
+          setAudioStatus(getErrorMessage(error));
+        }
+      }}
+    >
       <header className="beat-machine__header">
         <div className="beat-machine__title">
           <span>BEAT</span> IT
         </div>
 
-        <div
-          className="beat-tempo"
-          aria-label="Tempo"
-        >
+        <div className="beat-tempo" aria-label="Tempo">
           <button
             type="button"
             onClick={() => changeBpm(-2)}
@@ -672,9 +662,7 @@ export default function DrumMachine() {
           >
             −
           </button>
-
           <output>{bpm} BPM</output>
-
           <button
             type="button"
             onClick={() => changeBpm(2)}
@@ -684,9 +672,13 @@ export default function DrumMachine() {
           </button>
         </div>
 
-        <span className="beat-kit">
-          KIT 01
-        </span>
+        <button
+          className="beat-kit"
+          type="button"
+          onClick={() => setSampleManagerOpen(true)}
+        >
+          SOUNDS
+        </button>
 
         <button
           className="beat-help-button"
@@ -699,24 +691,19 @@ export default function DrumMachine() {
       </header>
 
       <div className="beat-machine__workspace">
-        <div
-          className="beat-pads"
-          aria-label="Drum Pads"
-        >
+        <div className="beat-pads" aria-label="Drum Pads">
           {pads.map((pad, trackIndex) => {
-            const padHasSteps =
-              pattern[trackIndex].some(Boolean);
+            const padHasSteps = pattern[trackIndex].some(Boolean);
+            const sampleInfo = sampleInfos[pad.id];
 
             return (
               <button
                 key={pad.id}
                 className={[
                   "beat-pad",
-
                   selectedTrack === trackIndex
                     ? "beat-pad--selected"
                     : "",
-
                   activePad === pad.id
                     ? "beat-pad--active"
                     : "",
@@ -724,20 +711,13 @@ export default function DrumMachine() {
                   .filter(Boolean)
                   .join(" ")}
                 type="button"
-                onPointerDown={() =>
-                  void playPad(
-                    pad,
-                    trackIndex,
-                  )
-                }
-                aria-pressed={
-                  selectedTrack === trackIndex
-                }
+                onPointerDown={() => void playPad(pad, trackIndex)}
+                aria-pressed={selectedTrack === trackIndex}
               >
-                <span className="beat-pad__label">
-                  {pad.label}
-                </span>
-
+                <span className="beat-pad__label">{pad.label}</span>
+                {sampleInfo.source === "custom" && (
+                  <small>{sampleInfo.name}</small>
+                )}
                 {padHasSteps && (
                   <span
                     className="beat-pad__activity"
@@ -749,183 +729,123 @@ export default function DrumMachine() {
           })}
         </div>
 
-        <div
-          className="beat-sequencer"
-          aria-label="Step Sequencer"
-        >
+        <div className="beat-sequencer" aria-label="Step Sequencer">
           <div className="beat-sequencer__top">
             <div
               className="beat-bank-tabs"
               aria-label="Sound-Bank auswählen"
             >
-              {BANK_NAMES.map(
-                (bankName, bankIndex) => (
-                  <button
-                    key={bankName}
-                    className={
-                      selectedBank === bankIndex
-                        ? "is-active"
-                        : ""
-                    }
-                    type="button"
-                    onClick={() =>
-                      setSelectedBank(bankIndex)
-                    }
-                    aria-pressed={
-                      selectedBank === bankIndex
-                    }
-                    aria-label={`${bankName}-Bank auswählen`}
-                  >
-                    {bankName}
-
-                    {bankHasSounds(bankIndex) && (
-                      <span aria-hidden="true" />
-                    )}
-                  </button>
-                ),
-              )}
+              {BANK_NAMES.map((bankName, bankIndex) => (
+                <button
+                  key={bankName}
+                  className={
+                    selectedBank === bankIndex ? "is-active" : ""
+                  }
+                  type="button"
+                  onClick={() => setSelectedBank(bankIndex)}
+                  aria-pressed={selectedBank === bankIndex}
+                  aria-label={`${bankName}-Bank auswählen`}
+                >
+                  {bankName}
+                  {bankHasSounds(bankIndex) && (
+                    <span aria-hidden="true" />
+                  )}
+                </button>
+              ))}
             </div>
 
-            <div
-              className="beat-step-numbers"
-              aria-hidden="true"
-            >
-              {Array.from(
-                { length: STEP_COUNT },
-                (_, index) => (
-                  <span key={index}>
-                    {index + 1}
-                  </span>
-                ),
-              )}
+            <div className="beat-step-numbers" aria-hidden="true">
+              {Array.from({ length: STEP_COUNT }, (_, index) => (
+                <span key={index}>{index + 1}</span>
+              ))}
             </div>
           </div>
 
-          {visiblePads.map(
-            (pad, visibleTrackIndex) => {
-              const trackIndex =
-                firstVisibleTrack +
-                visibleTrackIndex;
+          {visiblePads.map((pad, visibleTrackIndex) => {
+            const trackIndex = firstVisibleTrack + visibleTrackIndex;
+            const trackHasSounds = pattern[trackIndex].some(Boolean);
 
-              const trackHasSounds =
-                pattern[trackIndex].some(Boolean);
+            return (
+              <div
+                className={[
+                  "beat-track",
+                  `beat-track--${visibleTrackIndex + 1}`,
+                  selectedTrack === trackIndex ? "is-selected" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                key={pad.id}
+              >
+                <strong>{pad.label}</strong>
 
-              return (
-                <div
-                  className={[
-                    "beat-track",
-
-                    `beat-track--${
-                      visibleTrackIndex + 1
-                    }`,
-
-                    selectedTrack === trackIndex
-                      ? "is-selected"
-                      : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  key={pad.id}
-                >
-                  <strong>{pad.label}</strong>
-
-                  <label>
-                    <span className="sr-only">
-                      Länge der Spur {pad.label}
-                    </span>
-
-                    <select
-                      value={
-                        trackLengths[trackIndex]
-                      }
-                      onChange={(event) =>
-                        changeTrackLength(
-                          trackIndex,
-                          Number(
-                            event.target.value,
-                          ),
-                        )
-                      }
-                    >
-                      {TRACK_LENGTH_OPTIONS.map(
-                        (length) => (
-                          <option
-                            key={length}
-                            value={length}
-                          >
-                            {length}
-                          </option>
-                        ),
-                      )}
-                    </select>
-                  </label>
-
-                  <button
-                    className="beat-track__clear"
-                    type="button"
-                    onClick={() =>
-                      clearTrack(trackIndex)
+                <label>
+                  <span className="sr-only">
+                    Länge der Spur {pad.label}
+                  </span>
+                  <select
+                    value={trackLengths[trackIndex]}
+                    onChange={(event) =>
+                      changeTrackLength(
+                        trackIndex,
+                        Number(event.target.value),
+                      )
                     }
-                    disabled={!trackHasSounds}
-                    aria-label={`Spur ${pad.label} löschen`}
-                    title={`${pad.label}-Spur löschen`}
                   >
-                    ×
-                  </button>
+                    {TRACK_LENGTH_OPTIONS.map((length) => (
+                      <option key={length} value={length}>
+                        {length}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-                  <div className="beat-track__steps">
-                    {Array.from(
-                      { length: STEP_COUNT },
-                      (_, stepIndex) => {
-                        const hasSound =
-                          pattern[trackIndex][stepIndex];
+                <button
+                  className="beat-track__clear"
+                  type="button"
+                  onClick={() => clearTrack(trackIndex)}
+                  disabled={!trackHasSounds}
+                  aria-label={`Spur ${pad.label} löschen`}
+                  title={`${pad.label}-Spur löschen`}
+                >
+                  ×
+                </button>
 
-                        const isOutsideLoop =
-                          stepIndex >=
-                          trackLengths[trackIndex];
+                <div className="beat-track__steps">
+                  {Array.from(
+                    { length: STEP_COUNT },
+                    (_, stepIndex) => {
+                      const hasSound =
+                        pattern[trackIndex][stepIndex];
+                      const isOutsideLoop =
+                        stepIndex >= trackLengths[trackIndex];
+                      const isPlayhead =
+                        playheads[trackIndex] === stepIndex;
 
-                        const isPlayhead =
-                          playheads[trackIndex] ===
-                          stepIndex;
-
-                        return (
-                          <button
-                            key={stepIndex}
-                            type="button"
-                            disabled={isOutsideLoop}
-                            className={[
-                              hasSound
-                                ? "is-set"
-                                : "",
-
-                              isPlayhead
-                                ? "is-playhead"
-                                : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" ")}
-                            onClick={() =>
-                              toggleStep(
-                                trackIndex,
-                                stepIndex,
-                              )
-                            }
-                            aria-label={`${pad.label}, Schritt ${
-                              stepIndex + 1
-                            }${
-                              hasSound
-                                ? ", gesetzt"
-                                : ""
-                            }`}
-                          />
-                        );
-                      },
-                    )}
-                  </div>
+                      return (
+                        <button
+                          key={stepIndex}
+                          type="button"
+                          disabled={isOutsideLoop}
+                          className={[
+                            hasSound ? "is-set" : "",
+                            isPlayhead ? "is-playhead" : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
+                          onClick={() =>
+                            toggleStep(trackIndex, stepIndex)
+                          }
+                          aria-label={`${pad.label}, Schritt ${
+                            stepIndex + 1
+                          }${hasSound ? ", gesetzt" : ""}`}
+                        />
+                      );
+                    },
+                  )}
                 </div>
-              );
-            },
-          )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -937,9 +857,7 @@ export default function DrumMachine() {
               : "transport-button record-button"
           }
           type="button"
-          onClick={() =>
-            void toggleRecording()
-          }
+          onClick={() => void toggleRecording()}
           aria-pressed={isRecording}
         >
           <span aria-hidden="true">●</span>
@@ -962,9 +880,7 @@ export default function DrumMachine() {
               : "transport-button play-button"
           }
           type="button"
-          onClick={() =>
-            void startPlayback()
-          }
+          onClick={() => void startPlayback()}
           disabled={isPlaying}
         >
           <span aria-hidden="true">▶</span>
@@ -975,9 +891,7 @@ export default function DrumMachine() {
           className="transport-button"
           type="button"
           onClick={undo}
-          disabled={
-            undoStackRef.current.length === 0
-          }
+          disabled={undoDepth === 0}
         >
           <span aria-hidden="true">↶</span>
           UNDO
@@ -1001,14 +915,53 @@ export default function DrumMachine() {
           {saveMessage || "LOCAL"}
         </button>
 
+        <div className="beat-export-length" aria-label="Exportlänge">
+          <label>
+            <span>MIN</span>
+            <input
+              type="number"
+              min="0"
+              max="5"
+              inputMode="numeric"
+              value={exportMinutes}
+              onChange={(event) => {
+                const nextMinutes = Math.max(
+                  0,
+                  Math.min(5, Number(event.target.value)),
+                );
+                setExportMinutes(nextMinutes);
+                if (nextMinutes === 5) setExportSeconds(0);
+              }}
+            />
+          </label>
+          <b>:</b>
+          <label>
+            <span>SEK</span>
+            <input
+              type="number"
+              min="0"
+              max="59"
+              inputMode="numeric"
+              value={exportSeconds}
+              onChange={(event) =>
+                setExportSeconds(
+                  exportMinutes === 5
+                    ? 0
+                    : Math.max(
+                        0,
+                        Math.min(59, Number(event.target.value)),
+                      ),
+                )
+              }
+            />
+          </label>
+        </div>
+
         <button
           className="transport-button export-button"
           type="button"
           onClick={() => void exportWav()}
-          disabled={
-            !patternHasSounds ||
-            exportMessage === "RENDER…"
-          }
+          disabled={!patternHasSounds || exportMessage === "RENDER…"}
         >
           <span aria-hidden="true">⇩</span>
           {exportMessage || "WAV"}
@@ -1019,97 +972,141 @@ export default function DrumMachine() {
         <div
           className="beat-help-backdrop"
           role="presentation"
-          onPointerDown={() =>
-            setHelpOpen(false)
-          }
+          onPointerDown={() => setHelpOpen(false)}
         >
           <section
             className="beat-help-dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby="beat-help-title"
-            onPointerDown={(event) =>
-              event.stopPropagation()
-            }
+            onPointerDown={(event) => event.stopPropagation()}
           >
             <button
               className="beat-help-close"
               type="button"
-              onClick={() =>
-                setHelpOpen(false)
-              }
+              onClick={() => setHelpOpen(false)}
               aria-label="Hilfe schließen"
             >
               ×
             </button>
 
-            <h2 id="beat-help-title">
-              So funktioniert’s
-            </h2>
-
+            <h2 id="beat-help-title">So funktioniert’s</h2>
             <ul>
               <li>
-                CORE, HITS, PERC und USER wechseln
-                zwischen vier Sound-Banks mit jeweils
-                vier eigenen Spuren.
+                CORE, HITS, PERC und USER wechseln zwischen vier
+                Sound-Banks mit jeweils vier Spuren.
               </li>
-
               <li>
-                Tippe auf ein Pad, um den Sound zu hören.
-                Die passende Bank öffnet sich dabei
-                automatisch.
+                Tippe ein Pad zum Spielen oder einen großen Step zum
+                direkten Ein- und Ausschalten.
               </li>
-
               <li>
-                Tippe auf einen Step, um genau diesen
-                Sound dort ein- oder auszuschalten.
+                REC ordnet Pad-Schläge dem zeitlich nächsten Step zu.
               </li>
-
               <li>
-                REC startet den Loop und nimmt deine
-                Pad-Schläge auf.
+                Die Zahl neben jeder Spur bestimmt ihre eigene
+                Loop-Länge.
               </li>
-
               <li>
-                Die Zahl neben jeder Spur bestimmt ihre
-                eigene Loop-Länge.
+                SOUNDS weist Pads eigene Audiodateien zu. Diese werden
+                nur in diesem Browser gespeichert.
               </li>
-
               <li>
-                × löscht eine einzelne Spur und CLEAR den
-                gesamten Beat. LOCAL speichert ihn in
-                diesem Browser.
-              </li>
-
-              <li>
-                WAV rendert vier Takte und lädt sie als
-                Audiodatei herunter.
+                MIN:SEK bestimmt die Länge der WAV-Datei. Das Pattern
+                wird bis zur gewählten Zeit wiederholt.
               </li>
             </ul>
 
-            <p>
-              Ein Punkt an einem Pad oder einer Bank zeigt,
-              dass dort bereits Steps gesetzt sind.
-              USER 1–4 bekommen später deine persönlichen
-              Samples.
-            </p>
-
             <div className="beat-audio-test">
-              <strong>iPhone-Audiotest</strong>
-
-              <button
-                type="button"
-                onClick={() => void testHtmlAudio()}
-              >
-                WAV DIREKT ABSPIELEN
+              <strong>Audio</strong>
+              <button type="button" onClick={() => void restartAudio()}>
+                AUDIO NEU STARTEN
               </button>
-
-              {htmlAudioStatus && (
-                <output aria-live="polite">
-                  {htmlAudioStatus}
-                </output>
+              {audioStatus && (
+                <output aria-live="polite">{audioStatus}</output>
               )}
             </div>
+          </section>
+        </div>
+      )}
+
+      {sampleManagerOpen && (
+        <div
+          className="beat-help-backdrop"
+          role="presentation"
+          onPointerDown={() => setSampleManagerOpen(false)}
+        >
+          <section
+            className="beat-sample-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="beat-sample-title"
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <button
+              className="beat-help-close"
+              type="button"
+              onClick={() => setSampleManagerOpen(false)}
+              aria-label="Sound-Verwaltung schließen"
+            >
+              ×
+            </button>
+
+            <h2 id="beat-sample-title">Pad-Sounds</h2>
+            <p>
+              Eigene Dateien bleiben lokal in diesem Browser. Sie werden
+              nicht in Supabase und nicht in das Frontend hochgeladen.
+            </p>
+
+            <div className="beat-sample-list">
+              {pads.map((pad) => {
+                const info = sampleInfos[pad.id];
+
+                return (
+                  <div className="beat-sample-row" key={pad.id}>
+                    <div>
+                      <strong>{pad.label}</strong>
+                      <small title={info.name}>{info.name}</small>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => void previewSample(pad.id)}
+                      aria-label={`${pad.label} vorhören`}
+                    >
+                      ▶
+                    </button>
+
+                    <label className="beat-sample-file">
+                      ERSETZEN
+                      <input
+                        type="file"
+                        accept="audio/*,.wav,.mp3,.ogg,.m4a,.aac,.aif,.aiff"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          void handleSampleFile(pad.id, file);
+                          event.target.value = "";
+                        }}
+                      />
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() => void resetSample(pad.id)}
+                      disabled={info.source !== "custom"}
+                    >
+                      RESET
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {sampleMessage && (
+              <output className="beat-sample-message" aria-live="polite">
+                {sampleMessage}
+              </output>
+            )}
           </section>
         </div>
       )}
