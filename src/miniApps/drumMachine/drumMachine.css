@@ -87,6 +87,7 @@
     minmax(110px, 1fr)
     auto
     auto
+    auto
     auto;
 
   align-items: center;
@@ -122,6 +123,42 @@
 
 .beat-machine__title span {
   color: var(--olive-light);
+}
+
+.beat-audio-button {
+  min-height: 38px;
+  padding: 0 13px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  color: #fff;
+  background: var(--rust);
+  border: 1px solid var(--navy);
+  border-radius: 8px;
+
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.045em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.beat-audio-button span {
+  color: #ffb17f;
+  font-size: 0.86rem;
+}
+
+.beat-audio-button.is-ready {
+  color: var(--blue-light);
+  background: var(--navy);
+
+}
+
+.beat-audio-button.is-ready span {
+  color: var(--blue-light);
 }
 
 .beat-tempo {
@@ -186,7 +223,7 @@
 
   border:
     1px solid
-    #486ebc70;
+    var(--navy);
 
   border-radius: 8px;
 
@@ -438,7 +475,7 @@
 }
 
 .beat-bank-tabs button.is-active {
-  color: var(--olive-light);
+  color: #dce7f3;
   background: var(--olive);
 
   border-color: #c3b41d70;
@@ -562,7 +599,7 @@
 
   padding: 0 2px;
 
-  color: var(--olive-light);
+  color: #dce7f3;;
   background: var(--olive);
 
   border:
@@ -582,12 +619,12 @@
 
   padding: 0;
 
-  color: var(--olive-light);
+  color: #dce7f3;
   background: #24365f;
 
   border:
     1px solid
-    #6790c366;
+    #dce7f3;
 
   border-radius: 6px;
 
@@ -700,7 +737,8 @@
 }
 
 .beat-export-length label span {
-  color: #94abd0;
+  color: #dce7f3;
+  font: inherit;
   font-size: 0.46rem;
   font-weight: 800;
   line-height: 1;
@@ -713,7 +751,7 @@
   padding: 1px 2px;
 
   color: var(--navy);
-  background: #dce7f3;
+  background: var(--blue-light);
   border: 0;
   border-radius: 4px;
 
@@ -1060,7 +1098,8 @@
 
   .beat-tempo button,
   .beat-help-button,
-  .beat-kit {
+  .beat-kit,
+  .beat-audio-button {
     min-height: 34px;
   }
 
@@ -1096,6 +1135,11 @@
 
   .beat-kit {
     padding-inline: 9px;
+  }
+
+  .beat-audio-button {
+    padding-inline: 8px;
+    font-size: 0.62rem;
   }
 
   .beat-track {

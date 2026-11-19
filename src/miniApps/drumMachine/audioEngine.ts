@@ -114,6 +114,28 @@ function playSilentUnlockSound(context: AudioContext) {
   source.start(0);
 }
 
+function playAudibleUnlockSound(context: AudioContext) {
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  const when = context.currentTime;
+
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(880, when);
+  oscillator.frequency.exponentialRampToValueAtTime(
+    520,
+    when + 0.07,
+  );
+
+  gain.gain.setValueAtTime(0.0001, when);
+  gain.gain.exponentialRampToValueAtTime(0.08, when + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.08);
+
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start(when);
+  oscillator.stop(when + 0.09);
+}
+
 export async function ensureAudioReady(): Promise<AudioContext> {
   const context = getAudioContext();
 
@@ -122,6 +144,26 @@ export async function ensureAudioReady(): Promise<AudioContext> {
     // direkt zur Nutzeraktion auf „Beat It öffnen“ gehören.
     const resumePromise = context.resume();
     playSilentUnlockSound(context);
+    await resumePromise;
+  }
+
+  if (context.state !== "running") {
+    throw new Error("Audio konnte noch nicht aktiviert werden.");
+  }
+
+  return context;
+}
+
+export async function activateAudioWithFeedback(): Promise<AudioContext> {
+  const context = getAudioContext();
+
+  // Der kurze hörbare Ton wird noch innerhalb der direkten
+  // Nutzeraktion geplant. Das ist auf iOS zuverlässiger als ein
+  // vollständig stummer Unlock-Buffer.
+  playAudibleUnlockSound(context);
+
+  if (context.state !== "running") {
+    const resumePromise = context.resume();
     await resumePromise;
   }
 

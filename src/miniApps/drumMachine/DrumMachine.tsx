@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  activateAudioWithFeedback,
   ensureAudioReady,
   getAudioState,
   getPadSampleInfo,
@@ -167,6 +168,7 @@ export default function DrumMachine() {
   );
   const [sampleMessage, setSampleMessage] = useState("");
   const [audioStatus, setAudioStatus] = useState("");
+  const [audioVerified, setAudioVerified] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [exportMessage, setExportMessage] = useState("");
   const [exportMinutes, setExportMinutes] = useState(0);
@@ -178,6 +180,7 @@ export default function DrumMachine() {
   const bpmRef = useRef<number>(bpm);
   const playingRef = useRef(false);
   const recordingRef = useRef(false);
+  const audioVerifiedRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const tickRef = useRef(0);
   const audibleTickRef = useRef(0);
@@ -215,6 +218,8 @@ export default function DrumMachine() {
     function checkAudioAfterInterruption() {
       try {
         if (getAudioState() !== "running") {
+          audioVerifiedRef.current = false;
+          setAudioVerified(false);
           setAudioStatus(
             "AUDIO PAUSIERT – tippe auf AUDIO NEU STARTEN.",
           );
@@ -347,15 +352,24 @@ export default function DrumMachine() {
     }
   }
 
-  async function restartAudio() {
+  async function restartAudio(forceFeedback = false) {
     setAudioStatus("AUDIO WIRD GESTARTET …");
 
     try {
-      // ensureAudioReady() steht absichtlich vor jedem await.
-      const contextPromise = ensureAudioReady();
+      // Beide Funktionen werden absichtlich vor jedem await
+      // gestartet, damit sie direkt zur Nutzeraktion gehören.
+      const needsAudibleFeedback =
+        forceFeedback || !audioVerifiedRef.current;
+
+      const contextPromise = needsAudibleFeedback
+        ? activateAudioWithFeedback()
+        : ensureAudioReady();
+
       const context = await contextPromise;
       await preloadDrumSounds();
       audioContextRef.current = context;
+      audioVerifiedRef.current = true;
+      setAudioVerified(true);
       setSampleInfos(readSampleInfos());
       setAudioStatus("AUDIO BEREIT");
       return context;
@@ -638,21 +652,34 @@ export default function DrumMachine() {
   return (
     <section
       className="beat-machine"
-      aria-label="Beat It Drum Machine"
-      onPointerDownCapture={() => {
-        try {
-          if (getAudioState() !== "running") {
-            void restartAudio();
-          }
-        } catch (error) {
-          setAudioStatus(getErrorMessage(error));
-        }
-      }}
+      aria-label="Drum Machine"
     >
       <header className="beat-machine__header">
         <div className="beat-machine__title">
-          <span>BEAT</span> IT
+          <span>DRUM</span> MACHINE
         </div>
+
+        <button
+          className={
+            audioVerified
+              ? "beat-audio-button is-ready"
+              : "beat-audio-button"
+          }
+          type="button"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            void restartAudio(true);
+          }}
+          onClick={(event) => {
+            if (event.detail === 0) {
+              void restartAudio(true);
+            }
+          }}
+          aria-pressed={audioVerified}
+        >
+          <span aria-hidden="true">●</span>
+          {audioVerified ? "AUDIO AN" : "AUDIO START"}
+        </button>
 
         <div className="beat-tempo" aria-label="Tempo">
           <button
@@ -972,14 +999,14 @@ export default function DrumMachine() {
         <div
           className="beat-help-backdrop"
           role="presentation"
-          onPointerDown={() => setHelpOpen(false)}
+          onClick={() => setHelpOpen(false)}
         >
           <section
             className="beat-help-dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby="beat-help-title"
-            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
           >
             <button
               className="beat-help-close"
@@ -1019,7 +1046,20 @@ export default function DrumMachine() {
 
             <div className="beat-audio-test">
               <strong>Audio</strong>
-              <button type="button" onClick={() => void restartAudio()}>
+              <button
+                type="button"
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  void restartAudio(true);
+                }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (event.detail === 0) {
+                    void restartAudio(true);
+                  }
+                }}
+              >
                 AUDIO NEU STARTEN
               </button>
               {audioStatus && (
@@ -1034,14 +1074,14 @@ export default function DrumMachine() {
         <div
           className="beat-help-backdrop"
           role="presentation"
-          onPointerDown={() => setSampleManagerOpen(false)}
+          onClick={() => setSampleManagerOpen(false)}
         >
           <section
             className="beat-sample-dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby="beat-sample-title"
-            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
           >
             <button
               className="beat-help-close"
