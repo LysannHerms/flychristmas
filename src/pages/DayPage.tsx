@@ -9,12 +9,33 @@ import {
 } from "react-router-dom";
 import type { CalendarDay } from "../data/calendar";
 import AppUnlockPanel from "../components/AppUnlockPanel";
+import MysterySong from "../components/MysterySong";
 import { getMiniApp } from "../miniApps/miniAppRegistry";
 import { getCalendarDay } from "../services/calendarContent";
 import {
   isDayUnlocked,
   getUnlockMessage,
 } from "../utils/calendarTime";
+
+function isSpotifyTrackUrl(url: string) {
+  try {
+    const parsedUrl = new URL(url);
+    const parts = parsedUrl.pathname
+      .split("/")
+      .filter(Boolean);
+    const trackIndex = parts.indexOf("track");
+
+    return (
+      parsedUrl.hostname === "open.spotify.com" &&
+      trackIndex >= 0 &&
+      /^[A-Za-z0-9]{22}$/.test(
+        parts[trackIndex + 1] ?? "",
+      )
+    );
+  } catch {
+    return false;
+  }
+}
 
 export default function DayPage() {
   const { day } = useParams();
@@ -176,7 +197,9 @@ export default function DayPage() {
           />
         )}
 
-        {item.url && (
+        {item.url && isSpotifyTrackUrl(item.url) ? (
+          <MysterySong url={item.url} />
+        ) : item.url ? (
           <a
             className="content-link"
             href={item.url}
@@ -185,7 +208,7 @@ export default function DayPage() {
           >
             Überraschung öffnen ↗
           </a>
-        )}
+        ) : null}
 
         {MiniAppComponent && (
           <MiniAppComponent item={item} />

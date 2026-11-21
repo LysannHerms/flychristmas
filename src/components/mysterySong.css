@@ -1,0 +1,83 @@
+.mystery-song {
+  position: relative;
+  width: min(100%, 480px);
+  min-height: 152px;
+  margin: 24px auto 6px;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.mystery-song__player,
+.mystery-song__player iframe {
+  display: block;
+  width: 100%;
+  height: 152px;
+  border: 0;
+}
+
+.mystery-song__cover {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: var(--blue-light);
+}
+    
+
+.mystery-song__play,
+.mystery-song__fallback {
+  min-height: 52px;
+  padding: 13px 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--olive-light);
+  background: var(--navy);
+  border: 2px solid var(--olive-light);
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.mystery-song__play span {
+  font-size: 0.9em;
+}
+
+.mystery-song__play:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.mystery-song__play:not(:disabled):active {
+  color: var(--navy);
+  background: var(--olive-light);
+  transform: scale(0.98);
+}
+
+.mystery-song__fallback {
+  width: min(100%, 360px);
+  margin: 24px auto 6px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mystery-song.is-revealed {
+    animation: mystery-song-reveal 300ms ease-out both;
+  }
+}
+
+@keyframes mystery-song-reveal {
+  from {
+    opacity: 0.65;
+    transform: translateY(5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
