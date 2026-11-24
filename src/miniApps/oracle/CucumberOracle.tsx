@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { MiniAppProps } from "../miniAppRegistry";
 
-import Oracle1 from "../../assets/decorations/oracle/oracle1.png";
-import Oracle2 from "../../assets/decorations/oracle/oracle2.png";
-import Oracle3 from "../../assets/decorations/oracle/oracle3.png";
+import Oracle1 from "../../assets/decorations/oracle/oracle1.webp";
+import Oracle2 from "../../assets/decorations/oracle/oracle2.webp";
+import Oracle3 from "../../assets/decorations/oracle/oracle3.webp";
 
 import "./miniApps.css";
 

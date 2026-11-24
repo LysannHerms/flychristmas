@@ -5,16 +5,16 @@ import {
   isDayUnlocked,
 } from "../utils/calendarTime";
 
-import Gurke1 from "../assets/decorations/cucumbers/Gurke1.png";
-import Gurke2 from "../assets/decorations/cucumbers/Gurke2.png";
-import Gurke3 from "../assets/decorations/cucumbers/Gurke3.png";
-import Gurke4 from "../assets/decorations/cucumbers/Gurke4.png";
-import Gurke5 from "../assets/decorations/cucumbers/Gurke5.png";
-import Gurke6 from "../assets/decorations/cucumbers/Gurke6.png";
-import Gurke7 from "../assets/decorations/cucumbers/Gurke7.png";
-import Gurke8 from "../assets/decorations/cucumbers/Gurke8.png";
-import Gurke9 from "../assets/decorations/cucumbers/Gurke9.png";
-import Gurke10 from "../assets/decorations/cucumbers/Gurke10.png";
+import Gurke1 from "../assets/decorations/cucumbers/Gurke1.webp";
+import Gurke2 from "../assets/decorations/cucumbers/Gurke2.webp";
+import Gurke3 from "../assets/decorations/cucumbers/Gurke3.webp";
+import Gurke4 from "../assets/decorations/cucumbers/Gurke4.webp";
+import Gurke5 from "../assets/decorations/cucumbers/Gurke5.webp";
+import Gurke6 from "../assets/decorations/cucumbers/Gurke6.webp";
+import Gurke7 from "../assets/decorations/cucumbers/Gurke7.webp";
+import Gurke8 from "../assets/decorations/cucumbers/Gurke8.webp";
+import Gurke9 from "../assets/decorations/cucumbers/Gurke9.webp";
+import Gurke10 from "../assets/decorations/cucumbers/Gurke10.webp";
 
 interface AdventJarProps {
   day: number;
