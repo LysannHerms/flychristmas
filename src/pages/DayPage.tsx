@@ -156,6 +156,9 @@ export default function DayPage() {
   const isDrumMachine =
     item.appId === "drum-machine";
 
+  const isSoundLab =
+    item.appId === "sound-labor";
+
   return (
     <main className="day-page">
       <p className="day-date">
@@ -186,6 +189,13 @@ export default function DayPage() {
           <AppUnlockPanel
             appId="drum-machine"
             appPath="/tag/16/beat-it"
+          />
+        )}
+
+        {isSoundLab && (
+          <AppUnlockPanel
+            appId="sound-labor"
+            appPath="/tag/24/open-session"
           />
         )}
 

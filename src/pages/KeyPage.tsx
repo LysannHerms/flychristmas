@@ -1,22 +1,49 @@
 import {
+  useEffect,
   useRef,
   useState,
 } from "react";
-import { useSearchParams } from "react-router-dom";
+import {
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 
-export default function KeyPage() {
+interface KeyPageProps {
+  title: string;
+}
+
+export default function KeyPage({
+  title,
+}: KeyPageProps) {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [copyState, setCopyState] = useState<
     "idle" | "copied" | "error"
   >("idle");
 
-  const code = (
-    searchParams.get("code") ?? ""
-  )
-    .trim()
-    .toUpperCase();
+  const [code] = useState(() =>
+    (searchParams.get("code") ?? "")
+      .trim()
+      .toUpperCase(),
+  );
+
+  useEffect(() => {
+    if (!searchParams.has("code")) return;
+
+    // Der QR-Link transportiert den Schlüssel einmalig zur
+    // KeyPage. Danach bleibt er nur im Kopierfeld sichtbar.
+    void navigate(
+      {
+        pathname: location.pathname,
+        search: "",
+      },
+      { replace: true },
+    );
+  }, [location.pathname, navigate, searchParams]);
 
   async function copyCode() {
     if (!code) return;
@@ -54,7 +81,7 @@ export default function KeyPage() {
           EIN KLEINER SCHLÜSSEL
         </span>
 
-        <h1 id="">Drum Machine</h1>
+        <h1 id="key-title">{title}</h1>
 
         {code ? (
           <>

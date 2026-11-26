@@ -1,0 +1,51 @@
+.sound-lab-gate,
+.sound-lab-page {
+  min-height: 100vh;
+  padding: 20px;
+  display: grid;
+  place-items: center;
+  color: #f1f4f8;
+  background:
+    radial-gradient(
+      circle at 25% 20%,
+      #263866,
+      transparent 55%
+    ),
+    var(--navy);
+}
+
+.sound-lab-gate__card,
+.sound-lab-placeholder {
+  width: min(100%, 680px);
+  padding: clamp(28px, 6vw, 48px);
+  text-align: center;
+  background: #182345;
+  border: 1px solid #6790c366;
+  border-radius: 18px;
+}
+
+.sound-lab-gate__card h1,
+.sound-lab-placeholder h1 {
+  margin: 8px 0 12px;
+  color: var(--olive-light);
+}
+
+.sound-lab-gate__card p,
+.sound-lab-placeholder p {
+  line-height: 1.6;
+}
+
+.sound-lab-gate__card a,
+.sound-lab-placeholder a {
+  display: inline-block;
+  margin-top: 20px;
+  color: var(--blue-light);
+  text-underline-offset: 4px;
+}
+
+.sound-lab-placeholder__eyebrow {
+  color: var(--olive-light);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}

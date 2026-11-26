@@ -15,6 +15,7 @@ import HomePage from "./pages/HomePage";
 import DayPage from "./pages/DayPage";
 import KeyPage from "./pages/KeyPage";
 import DrumMachinePage from "./pages/DrumMachinePage";
+import SoundLabPage from "./pages/SoundLabPage";
 import "./unlocks.css";
 
 function ProtectedRoutes() {
@@ -56,7 +57,12 @@ export default function App() {
 
           <Route
             path="/key/beat-it"
-            element={<KeyPage />}
+            element={<KeyPage title="Drum Machine" />}
+          />
+
+          <Route
+            path="/key/open-session"
+            element={<KeyPage title="Sound-Labor" />}
           />
 
           <Route element={<ProtectedRoutes />}>
@@ -73,6 +79,11 @@ export default function App() {
             <Route
               path="/tag/16/beat-it"
               element={<DrumMachinePage />}
+            />
+
+            <Route
+              path="/tag/24/open-session"
+              element={<SoundLabPage />}
             />
           </Route>
 

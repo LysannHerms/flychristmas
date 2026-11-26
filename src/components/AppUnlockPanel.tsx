@@ -221,7 +221,11 @@ export default function AppUnlockPanel({
           onChange={(event) =>
             setCode(event.target.value.toUpperCase())
           }
-          placeholder="BEAT-…"
+          placeholder={
+            appId === "sound-labor"
+              ? "SOUND-…"
+              : "BEAT-…"
+          }
           autoComplete="off"
           autoCapitalize="characters"
           spellCheck={false}
