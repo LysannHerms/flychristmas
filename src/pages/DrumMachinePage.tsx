@@ -45,7 +45,7 @@ export default function DrumMachinePage() {
   if (accessState === "loading") {
     return (
       <main className="drum-machine-gate">
-        <p>Beat It wird geladen …</p>
+        <p>Drum Machine wirdgeladen …</p>
       </main>
     );
   }

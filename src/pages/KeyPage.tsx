@@ -54,7 +54,7 @@ export default function KeyPage() {
           EIN KLEINER SCHLÜSSEL
         </span>
 
-        <h1 id="key-title">Beat It</h1>
+        <h1 id="">Drum Machine</h1>
 
         {code ? (
           <>
